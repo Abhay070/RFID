@@ -5,7 +5,10 @@
 <div class="banner">Preview: this is what visitors see · <a href="/admin">Back to Command</a></div>
 {% endif %}
 <section class="card hero">
-  <div class="avatar">{{ profile.name[:1] }}</div>
+  <picture>
+    <source srcset="/static/avatar.webp" type="image/webp">
+    <img class="avatar-img" src="/static/avatar.jpg" alt="{{ profile.name }}" width="104" height="104">
+  </picture>
   <h1>{{ profile.name }}</h1>
   {% if profile.tagline %}<p class="tagline">{{ profile.tagline }}</p>{% endif %}
   {% if profile.location %}<p class="muted">{{ profile.location }}</p>{% endif %}

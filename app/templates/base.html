@@ -6,13 +6,16 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#ffffff">
   <title>{% block title %}GHOST ID{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Space+Mono&display=swap">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body data-theme="{{ theme() }}" {% block body_attrs %}{% endblock %}>
   <main class="wrap">
-    <header class="brand"><span class="dot"></span> GHOST<span class="dim">//</span>ID</header>
+    <header class="brand"><span class="dot"></span> {{ brand() }}<span class="dim">·</span>AI</header>
     {% block content %}{% endblock %}
-    <footer class="foot">GHOST ID</footer>
+    <footer class="foot">{{ brand() }} · AI — powered by GHOST ID</footer>
   </main>
   {% block scripts %}{% endblock %}
 </body>

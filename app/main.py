@@ -58,8 +58,21 @@ def fmt_time(ts: float | None) -> str:
     return time.strftime("%d %b %H:%M:%S", time.localtime(ts)) if ts else "-"
 
 
+def brand_name() -> str:
+    """Wordmark shown in the header: the owner's first name, else GHOST."""
+    try:
+        with db.tx() as c:
+            owner = db.get_owner(c)
+        if owner and owner["name"]:
+            return owner["name"].split()[0].upper()
+    except Exception:
+        pass
+    return "GHOST"
+
+
 templates.env.filters["t"] = fmt_time
 templates.env.globals["theme"] = current_theme
+templates.env.globals["brand"] = brand_name
 
 
 def client_ip(request: Request) -> str:
@@ -144,8 +157,9 @@ async def security_middleware(request: Request, call_next):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["Referrer-Policy"] = "no-referrer"
     resp.headers["Content-Security-Policy"] = (
-        "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
-        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        "default-src 'self'; img-src 'self' data:; "
+        "style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
+        "script-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     )
     if request.url.path.startswith(("/admin", "/pair", "/setup", "/t/")):
         resp.headers["Cache-Control"] = "no-store"
