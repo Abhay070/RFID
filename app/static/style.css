@@ -53,3 +53,8 @@ code { font-family: var(--mono); font-size: 12px; word-break: break-all; color: 
 .stats strong { font: 700 22px var(--mono); color: var(--accent); }
 .stats .muted { font-size: 12px; }
 .grow { flex: 1; text-decoration: none; }
+.recon { border-top: 1px solid var(--line); padding: 12px 0; }
+.recon:first-of-type { border-top: 0; }
+.recon-grab { display: flex; gap: 12px; margin-top: 8px; }
+.recon-grab .shot { width: 96px; border-radius: 10px; border: 1px solid var(--line); }
+.fine { font-size: 13px; } .fine + .fine { margin-top: 2px; }

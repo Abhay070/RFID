@@ -5,6 +5,7 @@
   python manage.py devices           list paired devices
   python manage.py unpair-all        unpair every device (lost or stolen phone)
   python manage.py rotate-band       issue a new band ID (lost or cloned band)
+  python manage.py wipe-recon        delete captured visitor recon (photos, GPS, fingerprints)
   python manage.py url               print the URL to write on the band
   python manage.py taps              show the last 20 taps
 """
@@ -58,6 +59,10 @@ def main() -> None:
             c.execute("UPDATE pairings SET used = 1 WHERE used = 0")
             db.audit(c, "owner", "unpair_all", f"{n} devices")
             print(f"Unpaired {n} device(s). Run 'pair' to add your phone again.")
+        elif cmd == "wipe-recon":
+            n = c.execute("DELETE FROM recon").rowcount
+            db.audit(c, "owner", "recon_wiped", f"{n} records")
+            print(f"Deleted {n} visitor recon record(s) (photos, locations, fingerprints).")
         elif cmd == "rotate-band":
             band_id = security.new_band_id()
             c.execute("UPDATE owner SET band_id = ? WHERE id = 1", (band_id,))

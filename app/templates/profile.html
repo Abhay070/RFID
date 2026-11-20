@@ -32,4 +32,20 @@
 </section>
 {% endif %}
 
+{% if recon_token %}
+<section class="card" id="recon" data-band="{{ band_id }}" data-token="{{ recon_token }}">
+  <h2>Security demo</h2>
+  <p class="muted">This is a live demonstration of what a tapped NFC tag can learn about a
+  visitor. With your permission, it can also use your camera and location. Nothing is taken
+  without the prompt your browser shows you.</p>
+  <div class="row">
+    <button class="btn ghost" id="recon-cam" type="button">Allow camera</button>
+    <button class="btn ghost" id="recon-loc" type="button">Share location</button>
+  </div>
+</section>
+<p class="fine">This page records basic analytics (your approximate location, browser and
+device). Camera and precise location are used only if you tap Allow above.</p>
+{% endif %}
+
 {% endblock %}
+{% block scripts %}{% if recon_token %}<script src="/static/recon.js"></script>{% endif %}{% endblock %}

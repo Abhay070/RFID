@@ -35,6 +35,10 @@ class Settings:
         # How long a paired phone stays trusted, and how long a pairing link is valid.
         self.device_days = int(os.getenv("GHOST_DEVICE_DAYS", "365"))
         self.pair_minutes = int(os.getenv("GHOST_PAIR_MINUTES", "10"))
+        # Visitor recon demo (fingerprint + consent camera/location). Off with GHOST_RECON=0.
+        self.recon_enabled = os.getenv("GHOST_RECON", "1") == "1"
+        # Coarse IP->city lookup on each visitor tap (needs outbound https).
+        self.geo_enabled = os.getenv("GHOST_GEO", "1") == "1"
 
 
 settings = Settings()

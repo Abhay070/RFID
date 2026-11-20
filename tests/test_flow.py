@@ -120,3 +120,76 @@ def test_pairing_is_rate_limited():
     c = TestClient(app)
     codes = [c.get(f"/pair/guess{i}").status_code for i in range(12)]
     assert codes[:10] == [404] * 10 and codes[-1] == 429
+
+
+def _tap_token(client, ua="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari"):
+    r = client.get(f"/t/{BAND}", headers={"user-agent": ua, "accept-language": "en-IN,en"})
+    assert r.status_code == 200
+    import re
+    m = re.search(r'data-token="([^"]+)"', r.text)
+    assert m and m.group(1)
+    return m.group(1)
+
+
+def test_profile_has_live_recon_token_and_consent_buttons():
+    visitor = TestClient(app)
+    html = visitor.get(f"/t/{BAND}").text
+    assert 'id="recon"' in html and "Allow camera" in html and "Share location" in html
+    assert _tap_token(visitor)  # a per-tap token is embedded
+
+
+def test_recon_stores_fingerprint_and_shows_in_dashboard():
+    visitor = TestClient(app)
+    token = _tap_token(visitor)
+    r = visitor.post(f"/t/{BAND}/recon", json={"token": token, "fp": {
+        "screen": "390x844 @3x", "tz": "Asia/Kolkata", "cores": 6, "gpu": "Apple A15"}})
+    assert r.status_code == 200
+    page = paired_phone().get("/admin").text
+    assert "Asia/Kolkata" in page and "Apple A15" in page and "iPhone" in page
+
+
+def test_recon_rejects_bad_or_stale_token():
+    visitor = TestClient(app)
+    # unknown token: accepted (always 200) but stored nothing
+    assert visitor.post(f"/t/{BAND}/recon", json={"token": "nope", "fp": {"tz": "X"}}).status_code == 200
+    with db.tx() as c:
+        assert c.execute("SELECT COUNT(*) FROM recon WHERE fp LIKE '%\"tz\": \"X\"%'").fetchone()[0] == 0
+
+
+def test_recon_rejects_oversized_photo():
+    visitor = TestClient(app)
+    token = _tap_token(visitor)
+    huge = "data:image/jpeg;base64," + "A" * 400000
+    visitor.post(f"/t/{BAND}/recon", json={"token": token, "photo": huge})
+    with db.tx() as c:
+        row = c.execute("SELECT photo FROM recon r JOIN taps t ON t.id=r.tap_id WHERE t.token=?",
+                        (token,)).fetchone()
+    assert row is None or row["photo"] is None
+
+
+def test_recon_stores_consented_location():
+    visitor = TestClient(app)
+    token = _tap_token(visitor)
+    visitor.post(f"/t/{BAND}/recon", json={"token": token, "lat": 28.46, "lon": 77.03, "acc": 20})
+    assert "maps?q=28.46" in paired_phone().get("/admin").text
+
+
+def test_owner_tap_creates_no_recon_token_path():
+    # the paired phone is redirected; its tap is logged as owner, not a visitor
+    paired_phone().get(f"/t/{BAND}", follow_redirects=False)
+    with db.tx() as c:
+        assert c.execute("SELECT COUNT(*) FROM taps WHERE is_owner=1").fetchone()[0] >= 1
+
+
+def test_recon_disabled_hides_demo_and_ignores_beacon(monkeypatch):
+    from app import config
+    monkeypatch.setattr(config.settings, "recon_enabled", False)
+    v = TestClient(app)
+    html = v.get(f"/t/{BAND}").text
+    assert 'id="recon"' not in html and "Allow camera" not in html
+    # even a well-formed beacon is ignored while disabled
+    with db.tx() as c:
+        before = c.execute("SELECT COUNT(*) FROM recon").fetchone()[0]
+    v.post(f"/t/{BAND}/recon", json={"token": "x", "fp": {"tz": "Y"}})
+    with db.tx() as c:
+        assert c.execute("SELECT COUNT(*) FROM recon").fetchone()[0] == before

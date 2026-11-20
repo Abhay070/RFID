@@ -14,8 +14,9 @@ Stack: **Python 3.12+, FastAPI, Jinja2 templates, SQLite (stdlib sqlite3)**, van
 ### What works
 - `/t/<band_id>`: if the request carries a valid paired-device cookie → logs an `owner_tap` and redirects to `/admin`. Otherwise → public profile only (from `data/profile.json`, falling back to `profile.example.json`) with vCard download. Every tap is logged.
 - Pairing: `manage.py pair [label]` prints `/pair/<code>` (one use, 10 min, rate limited). GET shows a confirm button (so link previews can't consume it); POST creates a device row and sets an httponly `ghost_device` cookie (365 days). Push alert on pairing.
-- `/admin` (Command): visitor tap stats and "who tapped" list, quick links (stored in the `resources` table), paired devices with Unpair, **LOCKDOWN** (unpairs all other devices), audit trail, `/admin/preview` of the public view. Every owner route returns the same 404 page to non-owners.
-- `manage.py`: `init` (name, generates band ID, prints band URL), `pair`, `devices`, `unpair-all`, `rotate-band`, `url`, `taps`.
+- `/admin` (Command): visitor tap stats and a **recon card per visitor** (parsed device, coarse IP geo, browser fingerprint, and consent-only camera still + GPS), quick links (stored in the `resources` table), paired devices with Unpair, **LOCKDOWN** (unpairs all other devices), audit trail, `/admin/preview` of the public view. Every owner route returns the same 404 page to non-owners.
+- `manage.py`: `init`, `pair`, `devices`, `unpair-all`, `wipe-recon`, `rotate-band`, `url`, `taps`.
+- **Visitor recon (red-team demo, owner decision Nov 2026):** on a visitor tap, `/t/<band>` embeds a one-time `token`; `app/static/recon.js` posts passive browser fingerprint signals to `POST /t/<band>/recon` (validated by token, 1 h TTL, visitor taps only, photo capped ~220 KB, always returns 200). Camera/GPS fire ONLY via on-page buttons that trigger the browser's native permission prompt; results are owner-only. A visible disclosure notice stays on the page. `app/geo.py` does best-effort IP->city in a background thread. Toggles: `GHOST_RECON=0` (whole demo off), `GHOST_GEO=0` (IP geo off). `manage.py wipe-recon` clears captures. Keep this consent-first and lawful (DPDP 2023 / GDPR): never make camera/GPS silent, never remove the notice, treat stored photos/coords as personal data.
 
 ### Security already implemented
 Device tokens (256-bit) stored as SHA-256 hashes; httponly + SameSite=Lax cookies (Secure when the base URL is https); one-time expiring pairing codes, stored hashed; pairing rate limit of 10 per 15 min per IP; Origin-header CSRF check on all POSTs; strict CSP (no inline scripts, so JS lives in `/static`); X-Frame-Options DENY; no-store on owner and tap routes; random 96-bit band ID; owner routes indistinguishable from missing pages. No passwords exist.
@@ -28,17 +29,20 @@ app/config.py     env settings (.env loader built in)
 app/db.py         schema: owner, taps, resources (quick links), pairings, devices, audit
 app/security.py   tokens, RateLimiter (in-memory)
 app/notify.py     ntfy push (background thread, never raises)
+app/geo.py        best-effort IP->city (background thread, never raises)
+app/useragent.py  dependency-free UA summariser
+app/static/recon.js  visitor fingerprint + consent camera/location beacon
 app/main.py       all routes + security middleware
 app/templates/    base, home, profile, pair, message, admin
 app/static/       style.css (dark "ghost" green theme)
 manage.py         CLI
-tests/test_flow.py  11 end-to-end tests (pytest + httpx TestClient)
+tests/test_flow.py  18 end-to-end tests (pytest + httpx TestClient)
 pytest.ini        lets `pytest -q` import `app` from the repo root
 Dockerfile        uvicorn with proxy headers; DB at /data
 ```
 
 ### Env vars (`.env`)
-`GHOST_BASE_URL` (public https URL), `GHOST_TRUST_PROXY=1` behind a proxy, `NTFY_TOPIC` (long random secret), `GHOST_NOTIFY_TAPS` (0/1), optional `GHOST_DB`, `GHOST_PROFILE`, `GHOST_DEVICE_DAYS` (365), `GHOST_PAIR_MINUTES` (10).
+`GHOST_BASE_URL` (public https URL), `GHOST_TRUST_PROXY=1` behind a proxy, `NTFY_TOPIC` (long random secret), `GHOST_NOTIFY_TAPS` (0/1), optional `GHOST_DB`, `GHOST_PROFILE`, `GHOST_DEVICE_DAYS` (365), `GHOST_PAIR_MINUTES` (10), `GHOST_RECON` (1), `GHOST_GEO` (1), `GHOST_NOTIFY_TAPS` (0).
 
 ## Run
 

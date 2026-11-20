@@ -19,7 +19,7 @@ Visitors never see a login page, request form or any hint that Command exists. `
 | "Save contact" button (vCard) | `/t/<band-id>/contact.vcf` |
 | Owner tap: your paired phone is sent straight to Command | `/t/<band-id>` → `/admin` |
 | One-time phone pairing link, created only from the server | `manage.py pair` |
-| **Who tapped your band**: time, IP and device of each visitor tap | `/admin` |
+| **Who tapped your band**: a recon card per visitor (see below) | `/admin` |
 | Quick links: your repos, docs and tools in one place | `/admin` |
 | Paired devices list with Unpair, and a **LOCKDOWN** button that unpairs every other device | `/admin` |
 | "Public view" preview of what visitors see | `/admin/preview` |
@@ -30,6 +30,22 @@ Visitors never see a login page, request form or any hint that Command exists. `
 **How your phone is recognised:** pairing stores a random 256-bit device token in a secure, httponly cookie on your phone (kept 365 days). The server stores only its SHA-256 hash. There is no password to guess or phish, and pairing links work once, expire after 10 minutes and are rate limited.
 
 Other security: CSRF origin checks on every form, strict Content-Security-Policy (no inline scripts), no-store caching on owner pages, and a random 96-bit band ID that can't be guessed.
+
+## Visitor recon (the red-team demo)
+
+Each visitor tap builds a recon card in Command, visible to you only. It is designed to teach an exhibition audience how much a plain URL already gives away.
+
+**Collected automatically** (the same signals every website receives, parsed for you): browser, OS and device; language; referrer; and a coarse city-level location from the IP (`GHOST_GEO=1`, best-effort, needs outbound https). A small on-page script also reports the browser's own fingerprint: screen and viewport, time zone, platform, CPU cores, RAM, GPU model, touch points, battery and network type. No permission prompt is involved, exactly like commercial ad trackers.
+
+**Collected only with consent:** the profile shows **Allow camera** and **Share location** buttons. These trigger the *browser's own* permission prompt. A camera still (one downscaled frame) or precise GPS is captured only if the visitor accepts, and the result appears on your dashboard. This is a hard browser rule: neither can ever be taken silently.
+
+**Ethics and law — read this before you demo it publicly.**
+- The page carries a visible notice that it records analytics and may use the camera/location with permission. Keep that notice. Collecting this data covertly from people who haven't consented can breach India's DPDP Act 2023 and the EU GDPR, and most exhibition codes of conduct.
+- Use it as an *awareness* demo: tell people what it does, ideally before they tap. The point lands harder when they understand it.
+- Camera stills and precise coordinates of real people are personal data. Don't retain them longer than the demo, and don't publish them. `python manage.py wipe-recon` clears all captured recon.
+- Only run this on bands and visitors in a setting where this is appropriate (your own stall, with signage). It is not a tool for tracking people who never agreed.
+
+Turn the whole thing off with `GHOST_RECON=0`; turn only IP geolocation off with `GHOST_GEO=0`.
 
 ## 1. Run it on your computer
 

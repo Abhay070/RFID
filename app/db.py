@@ -17,7 +17,20 @@ CREATE TABLE IF NOT EXISTS taps (
     ts REAL NOT NULL,
     band_id TEXT NOT NULL,
     ip TEXT, ua TEXT,
-    is_owner INTEGER NOT NULL DEFAULT 0
+    is_owner INTEGER NOT NULL DEFAULT 0,
+    lang TEXT,                 -- Accept-Language header
+    referer TEXT,              -- where the visitor came from
+    geo TEXT,                  -- JSON: coarse city/region/country from the IP
+    token TEXT                 -- random id tying the browser beacon to this tap
+);
+CREATE TABLE IF NOT EXISTS recon (             -- what a visitor's browser revealed
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tap_id INTEGER NOT NULL UNIQUE,
+    ts REAL NOT NULL,
+    ip TEXT,
+    fp TEXT,                   -- JSON browser fingerprint (no permission prompt)
+    photo TEXT,                -- camera still, only if the visitor tapped Allow
+    lat REAL, lon REAL, acc REAL   -- precise location, only if the visitor allowed it
 );
 CREATE TABLE IF NOT EXISTS resources (          -- the owner's quick links
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,6 +88,12 @@ def init() -> None:
     Path(settings.db_path).parent.mkdir(parents=True, exist_ok=True)
     with tx() as c:
         c.executescript(SCHEMA)
+        # Migrate older databases that predate the recon columns.
+        for col, decl in (("lang", "TEXT"), ("referer", "TEXT"),
+                          ("geo", "TEXT"), ("token", "TEXT")):
+            have = [r[1] for r in c.execute("PRAGMA table_info(taps)")]
+            if col not in have:
+                c.execute(f"ALTER TABLE taps ADD COLUMN {col} {decl}")
 
 
 def audit(c: sqlite3.Connection, actor: str, action: str, detail: str = "", ip: str = "") -> None:
