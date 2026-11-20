@@ -283,7 +283,7 @@ def pair_confirm(request: Request, code: str):
 
 
 # ---------------------------------------------------------------- owner: command dashboard
-@app.get("/setup/{key}", response_class=HTMLResponse)
+@app.get("/setup/{key:path}", response_class=HTMLResponse)
 def setup_page(request: Request, key: str):
     """Pair a phone from the browser using the secret GHOST_SETUP_KEY. For hosts
     where you can't run 'manage.py pair'. GET only shows a button (so link
@@ -296,7 +296,7 @@ def setup_page(request: Request, key: str):
                                                              "setup_key": key})
 
 
-@app.post("/setup/{key}")
+@app.post("/setup/{key:path}")
 def setup_confirm(request: Request, key: str):
     ip = client_ip(request)
     if not pair_limiter.hit(ip):
