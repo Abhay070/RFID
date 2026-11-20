@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Visitor detail · GHOST ID{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="split"><h2>Visitor #{{ t.id }}</h2><a class="btn ghost small" href="/admin">Back</a></div>
+  <p class="muted">{{ t.device }} · {{ t.ts|t }}</p>
+  {% for f in t.flags %}<span class="flag">{{ f }}</span>{% endfor %}
+</section>
+
+{% if t.photo %}
+<section class="card hero">
+  <h2>Camera</h2>
+  <a href="{{ t.photo }}" target="_blank"><img class="shot-big" src="{{ t.photo }}" alt="camera still"></a>
+  <p class="fine muted">Captured with the visitor's consent.</p>
+</section>
+{% endif %}
+
+{% if t.maps %}
+<section class="card">
+  <h2>Location</h2>
+  <p><a class="btn" href="{{ t.maps }}" rel="noopener">Open in Maps</a></p>
+  <p class="fine">{{ "%.5f"|format(t.lat) }}, {{ "%.5f"|format(t.lon) }} · accuracy ±{{ t.acc|int }} m</p>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Network</h2>
+  <div class="barrow"><span class="muted">IP</span><span>{{ t.ip }}</span></div>
+  {% if t.org %}<div class="barrow"><span class="muted">ISP / org</span><span>{{ t.org }}</span></div>{% endif %}
+  {% if t.place %}<div class="barrow"><span class="muted">Location (IP)</span><span>{{ t.place }}</span></div>{% endif %}
+  {% if t.lang %}<div class="barrow"><span class="muted">Language</span><span>{{ t.lang }}</span></div>{% endif %}
+  {% if t.referer %}<div class="barrow"><span class="muted">Came from</span><span>{{ t.referer }}</span></div>{% endif %}
+</section>
+
+<section class="card">
+  <h2>Device fingerprint</h2>
+  {% for label, val in t.fp %}<div class="barrow"><span class="muted">{{ label }}</span><span>{{ val }}</span></div>
+  {% else %}<p class="muted">No fingerprint captured.</p>{% endfor %}
+  <div class="barrow"><span class="muted">User-Agent</span><span class="fine">{{ t.ua }}</span></div>
+</section>
+
+{% if t.fp_raw %}
+<section class="card">
+  <h2>Raw data</h2>
+  <pre class="raw">{{ t.fp_raw }}</pre>
+</section>
+{% endif %}
+{% endblock %}

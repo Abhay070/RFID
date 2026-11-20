@@ -47,6 +47,27 @@ Each visitor tap builds a recon card in Command, visible to you only. It is desi
 
 Turn the whole thing off with `GHOST_RECON=0`; turn only IP geolocation off with `GHOST_GEO=0`.
 
+## Command center features
+
+Your dashboard (your paired phone only) is a full control panel:
+
+**Analytics**
+- Summary tiles: total taps, unique IPs, unique devices, camera grabs, locations shared.
+- A 7-day taps chart, device/browser breakdown and top locations.
+- A **per-visitor detail page** (tap any row): full fingerprint, map, camera still, ISP, raw data.
+- **Repeat-visitor and risk flags**: the same IP or device fingerprint tapping more than once is flagged, so you can spot a cloned tag or someone casing your band.
+
+**Actions (no terminal needed)**
+- Toggle the recon demo on/off, wipe all captured recon, rotate your band ID, and generate a fresh pairing link, all as buttons.
+- **Export** every visitor tap and recon as CSV or JSON.
+- **Edit your public profile** (bio, links, projects, highlights, contact) from the dashboard; changes show instantly.
+- A private **notes** scratchpad and a **push-to-my-phone** box.
+
+**Connect apps & automations**
+- Add webhooks that fire on events (`tap`, `photo`, `location`, `pair`). Supported: Discord, Slack, ntfy, Home Assistant, and any generic JSON webhook (Zapier / IFTTT / n8n / Make).
+- Example: "someone taps my band → ping my Discord channel and flash my Home Assistant lights."
+- Outbound notifications only; GHOST ID never runs commands on any machine. Each webhook has Test / On-off / Delete.
+
 ## 1. Run it on your computer
 
 ```bash

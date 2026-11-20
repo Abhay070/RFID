@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Edit profile · GHOST ID{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="split"><h2>Edit public profile</h2><a class="btn ghost small" href="/admin">Back</a></div>
+  <form method="post" action="/admin/profile" class="stack">
+    <label>Name<input name="name" value="{{ p.name or '' }}" maxlength="80"></label>
+    <label>Tagline<input name="tagline" value="{{ p.tagline or '' }}" maxlength="120"></label>
+    <label>Location<input name="location" value="{{ p.location or '' }}" maxlength="80"></label>
+    <label>Bio<textarea name="bio" rows="3" maxlength="500">{{ p.bio or '' }}</textarea></label>
+    <label>Links — one per line, as <code>Label|https://url</code>
+      <textarea name="links" rows="3">{{ text.links }}</textarea></label>
+    <label>Projects — one per line, as <code>Name|description</code>
+      <textarea name="projects" rows="4">{{ text.projects }}</textarea></label>
+    <label>Highlights — one per line
+      <textarea name="achievements" rows="4">{{ text.achievements }}</textarea></label>
+    <label>Contact email (shown on the public card; leave blank to hide)
+      <input name="email" value="{{ p.contact.email or '' }}" maxlength="120"></label>
+    <label>Contact phone (leave blank to hide)
+      <input name="phone" value="{{ p.contact.phone or '' }}" maxlength="40"></label>
+    <button class="btn" type="submit">Save profile</button>
+  </form>
+  <p class="fine muted">Saved changes show on your band profile immediately.</p>
+</section>
+{% endblock %}

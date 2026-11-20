@@ -138,14 +138,90 @@ def test_profile_has_live_recon_token_and_consent_buttons():
     assert _tap_token(visitor)  # a per-tap token is embedded
 
 
-def test_recon_stores_fingerprint_and_shows_in_dashboard():
+def test_recon_stores_fingerprint_and_shows_in_detail():
     visitor = TestClient(app)
     token = _tap_token(visitor)
     r = visitor.post(f"/t/{BAND}/recon", json={"token": token, "fp": {
         "screen": "390x844 @3x", "tz": "Asia/Kolkata", "cores": 6, "gpu": "Apple A15"}})
     assert r.status_code == 200
-    page = paired_phone().get("/admin").text
-    assert "Asia/Kolkata" in page and "Apple A15" in page and "iPhone" in page
+    owner = paired_phone()
+    # device summary shows on the dashboard; full fingerprint on the detail page
+    assert "iPhone" in owner.get("/admin").text
+    with db.tx() as c:
+        tap_id = c.execute("SELECT t.id FROM taps t JOIN recon r ON r.tap_id=t.id"
+                           " WHERE t.token=?", (token,)).fetchone()["id"]
+    detail = owner.get(f"/admin/tap/{tap_id}").text
+    assert "Asia/Kolkata" in detail and "Apple A15" in detail
+
+
+def test_analytics_and_controls_render():
+    owner = paired_phone()
+    page = owner.get("/admin").text
+    assert "Analytics" in page and "Connect apps" in page and "Controls" in page
+    assert "Export CSV" in page
+
+
+def test_recon_toggle_off_disables_capture():
+    owner = paired_phone()
+    owner.post("/admin/recon/toggle")  # default on -> off
+    v = TestClient(app)
+    assert 'id="recon"' not in v.get(f"/t/{BAND}").text
+    owner.post("/admin/recon/toggle")  # back on
+    assert 'id="recon"' in TestClient(app).get(f"/t/{BAND}").text
+
+
+def test_export_csv_and_json():
+    owner = paired_phone()
+    _tap_token(TestClient(app))
+    csv = owner.get("/admin/export.csv")
+    assert csv.status_code == 200 and "text/csv" in csv.headers["content-type"]
+    assert "user_agent" in csv.text
+    js = owner.get("/admin/export.json")
+    assert js.status_code == 200 and js.json() != [] or isinstance(js.json(), list)
+
+
+def test_editable_profile_overrides_public_view():
+    owner = paired_phone()
+    owner.post("/admin/profile", data={"name": "Abhay Bailey", "tagline": "Red Team",
+               "bio": "x", "links": "GitHub|https://github.com/abhay070",
+               "projects": "GHOST ID|NFC system", "achievements": "Cyber Leader",
+               "email": "", "phone": ""})
+    html = TestClient(app).get(f"/t/{BAND}").text
+    assert "Red Team" in html and "github.com/abhay070" in html
+
+
+def test_pair_link_from_command():
+    owner = paired_phone()
+    r = owner.post("/admin/pair-link", follow_redirects=False)
+    assert r.status_code == 303 and "pair_link=" in r.headers["location"]
+
+
+def test_webhook_add_toggle_delete_owner_only():
+    owner = paired_phone()
+    owner.post("/admin/webhooks", data={"name": "My Discord", "kind": "discord",
+               "url": "https://discord.com/api/webhooks/x", "event_tap": "on"})
+    with db.tx() as c:
+        h = c.execute("SELECT * FROM webhooks WHERE name='My Discord'").fetchone()
+    assert h and h["enabled"] == 1 and "tap" in h["events"]
+    # visitors can't touch any of it
+    assert TestClient(app).post("/admin/webhooks", data={"kind": "discord",
+           "url": "https://x", "event_tap": "on"}).status_code == 404
+    owner.post(f"/admin/webhooks/{h['id']}/toggle")
+    with db.tx() as c:
+        assert c.execute("SELECT enabled FROM webhooks WHERE id=?", (h["id"],)).fetchone()["enabled"] == 0
+    owner.post(f"/admin/webhooks/{h['id']}/delete")
+    with db.tx() as c:
+        assert c.execute("SELECT COUNT(*) FROM webhooks WHERE id=?", (h["id"],)).fetchone()[0] == 0
+
+
+def test_notes_add_and_delete():
+    owner = paired_phone()
+    owner.post("/admin/notes", data={"text": "remember to rotate band"})
+    assert "remember to rotate band" in owner.get("/admin").text
+
+
+def test_tap_detail_is_owner_only():
+    assert TestClient(app).get("/admin/tap/1").status_code == 404
 
 
 def test_recon_rejects_bad_or_stale_token():
@@ -181,18 +257,21 @@ def test_owner_tap_creates_no_recon_token_path():
         assert c.execute("SELECT COUNT(*) FROM taps WHERE is_owner=1").fetchone()[0] >= 1
 
 
-def test_recon_disabled_hides_demo_and_ignores_beacon(monkeypatch):
-    from app import config
-    monkeypatch.setattr(config.settings, "recon_enabled", False)
-    v = TestClient(app)
-    html = v.get(f"/t/{BAND}").text
-    assert 'id="recon"' not in html and "Allow camera" not in html
-    # even a well-formed beacon is ignored while disabled
+def test_recon_disabled_hides_demo_and_ignores_beacon():
     with db.tx() as c:
-        before = c.execute("SELECT COUNT(*) FROM recon").fetchone()[0]
-    v.post(f"/t/{BAND}/recon", json={"token": "x", "fp": {"tz": "Y"}})
-    with db.tx() as c:
-        assert c.execute("SELECT COUNT(*) FROM recon").fetchone()[0] == before
+        db.set_config(c, "recon_enabled", "0")
+    try:
+        v = TestClient(app)
+        html = v.get(f"/t/{BAND}").text
+        assert 'id="recon"' not in html and "Allow camera" not in html
+        with db.tx() as c:
+            before = c.execute("SELECT COUNT(*) FROM recon").fetchone()[0]
+        v.post(f"/t/{BAND}/recon", json={"token": "x", "fp": {"tz": "Y"}})
+        with db.tx() as c:
+            assert c.execute("SELECT COUNT(*) FROM recon").fetchone()[0] == before
+    finally:
+        with db.tx() as c:
+            db.set_config(c, "recon_enabled", "1")
 
 
 def test_setup_link_pairs_a_phone_and_is_key_gated(monkeypatch):

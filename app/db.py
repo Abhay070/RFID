@@ -65,6 +65,26 @@ CREATE TABLE IF NOT EXISTS audit (
     detail TEXT,
     ip TEXT
 );
+CREATE TABLE IF NOT EXISTS config (          -- runtime settings toggled from Command
+    k TEXT PRIMARY KEY,
+    v TEXT
+);
+CREATE TABLE IF NOT EXISTS notes (           -- owner's private scratchpad
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    text TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS webhooks (        -- connect apps: fire on events
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind TEXT NOT NULL,                      -- discord / slack / ntfy / generic / home_assistant
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    events TEXT NOT NULL,                     -- comma list: tap,photo,location,pair
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created REAL NOT NULL,
+    last_fired REAL,
+    last_status TEXT
+);
 """
 
 
@@ -105,6 +125,16 @@ def audit(c: sqlite3.Connection, actor: str, action: str, detail: str = "", ip: 
 
 def get_owner(c: sqlite3.Connection):
     return c.execute("SELECT * FROM owner WHERE id = 1").fetchone()
+
+
+def get_config(c: sqlite3.Connection, key: str, default: str = "") -> str:
+    row = c.execute("SELECT v FROM config WHERE k = ?", (key,)).fetchone()
+    return row["v"] if row else default
+
+
+def set_config(c: sqlite3.Connection, key: str, value: str) -> None:
+    c.execute("INSERT INTO config (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v",
+              (key, value))
 
 
 def ensure_owner() -> None:
