@@ -293,3 +293,28 @@ def test_setup_disabled_when_no_key(monkeypatch):
     from app import config
     monkeypatch.setattr(config.settings, "setup_key", "")
     assert TestClient(app).get("/setup/anything").status_code == 404
+
+
+def test_command_has_tabs_qr_and_feed():
+    page = paired_phone().get("/admin").text
+    assert 'data-tab="overview"' in page and 'data-tab="visitors"' in page
+    assert "<svg" in page and "qrwrap" in page          # band QR rendered inline
+    assert 'id="feed"' in page and "/static/admin.js" in page
+
+
+def test_live_feed_json_owner_only():
+    _tap_token(TestClient(app))
+    owner = paired_phone()
+    r = owner.get("/admin/feed.json")
+    assert r.status_code == 200 and isinstance(r.json()["items"], list)
+    assert TestClient(app).get("/admin/feed.json").status_code == 404
+
+
+def test_theme_switch_applies_to_pages():
+    owner = paired_phone()
+    owner.post("/admin/theme", data={"theme": "dark"})
+    assert 'data-theme="dark"' in TestClient(app).get(f"/t/{BAND}").text
+    owner.post("/admin/theme", data={"theme": "bogus"})  # ignored
+    assert 'data-theme="dark"' in owner.get("/admin").text
+    owner.post("/admin/theme", data={"theme": "light"})
+    assert 'data-theme="light"' in TestClient(app).get(f"/t/{BAND}").text

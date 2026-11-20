@@ -16,6 +16,7 @@ Stack: **Python 3.12+, FastAPI, Jinja2 templates, SQLite (stdlib sqlite3)**, van
 - Pairing: `manage.py pair [label]` prints `/pair/<code>` (one use, 10 min, rate limited). GET shows a confirm button (so link previews can't consume it); POST creates a device row and sets an httponly `ghost_device` cookie (365 days). Push alert on pairing.
 - `/admin` (Command): visitor tap stats and a **recon card per visitor** (parsed device, coarse IP geo, browser fingerprint, and consent-only camera still + GPS), quick links (stored in the `resources` table), paired devices with Unpair, **LOCKDOWN** (unpairs all other devices), audit trail, `/admin/preview` of the public view. Every owner route returns the same 404 page to non-owners.
 - `manage.py`: `init`, `pair`, `devices`, `unpair-all`, `wipe-recon`, `rotate-band`, `url`, `taps`.
+- **UI (Nov 2026):** tabbed Command (Overview/Visitors/Apps/Settings) via `app/static/admin.js`; inline-SVG **QR** of the band URL and pairing link (segno); **live visitor feed** polling `/admin/feed.json` every 5 s; **theme picker** (light/dark/cyber) stored in `config.theme`, applied as `<body data-theme>` via a `theme()` Jinja global, themes defined with CSS-var overrides in `style.css`. Strict CSP unchanged (scripts/styles from 'self' only; QR is inline SVG; no external fonts).
 - **Command analytics + actions (Nov 2026):** summary stats, 7-day chart, device breakdown, per-visitor detail page (`/admin/tap/<id>`), repeat/risk flags; dashboard actions: recon toggle (DB `config.recon_enabled` overrides `GHOST_RECON` via `recon_on()`), wipe recon, rotate band, generate pairing link, CSV/JSON export, DB-backed editable profile (`config.profile` overrides the profile file in `load_profile()`), notes, push.
 - **Connect apps / automations (`app/automations.py`):** `webhooks` table; `fire(event,...)` posts to enabled hooks on `tap`/`photo`/`location`; kinds discord/slack/ntfy/home_assistant/generic. Outbound only, background threads, never raises. UI add/test/toggle/delete in Command. No command execution (honors the allow-list rule).
 - **Visitor recon (red-team demo, owner decision Nov 2026):** on a visitor tap, `/t/<band>` embeds a one-time `token`; `app/static/recon.js` posts passive browser fingerprint signals to `POST /t/<band>/recon` (validated by token, 1 h TTL, visitor taps only, photo capped ~220 KB, always returns 200). Camera/GPS fire ONLY via on-page buttons that trigger the browser's native permission prompt; results are owner-only. A visible disclosure notice stays on the page. `app/geo.py` does best-effort IP->city in a background thread. Toggles: `GHOST_RECON=0` (whole demo off), `GHOST_GEO=0` (IP geo off). `manage.py wipe-recon` clears captures. Keep this consent-first and lawful (DPDP 2023 / GDPR): never make camera/GPS silent, never remove the notice, treat stored photos/coords as personal data.
@@ -35,11 +36,12 @@ app/geo.py        best-effort IP->city (background thread, never raises)
 app/useragent.py  dependency-free UA summariser
 app/static/recon.js  visitor fingerprint + consent camera/location beacon
 app/automations.py   outbound webhooks on events (discord/slack/ntfy/HA/generic)
+app/static/admin.js  Command tabs, live visitor feed poll, copy buttons
 app/main.py       all routes + security middleware
 app/templates/    base, home, profile, pair, message, admin, tap_detail, profile_edit
 app/static/       style.css (dark "ghost" green theme)
 manage.py         CLI
-tests/test_flow.py  28 end-to-end tests (pytest + httpx TestClient)
+tests/test_flow.py  31 end-to-end tests (pytest + httpx TestClient)
 pytest.ini        lets `pytest -q` import `app` from the repo root
 Dockerfile        uvicorn with proxy headers; DB at /data
 ```
@@ -83,7 +85,7 @@ pytest -q                          # must stay green
 
 ## Constraints and conventions
 
-- Keep dependencies minimal; prefer the stdlib (see `security.py`).
+- Keep dependencies minimal; prefer the stdlib (see `security.py`). Current third-party deps: fastapi, uvicorn, jinja2, python-multipart, segno (pure-python QR, no sub-deps).
 - No inline JS/CSS (CSP). Mobile-first UI; the visitor experience happens on phones.
 - Every security-relevant action must write to `audit` via `db.audit(...)`.
 - Anything that executes on his machines must be allow-listed. No remote arbitrary command execution.

@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
+import segno
 from fastapi import FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -29,6 +30,18 @@ BASE = Path(__file__).resolve().parent
 DEVICE_COOKIE = "ghost_device"
 RECON_TTL = 3600          # a beacon token is accepted for 1 hour after the tap
 MAX_PHOTO = 300_000       # ~220 KB data URL cap for a consent camera still
+THEMES = ("light", "dark", "cyber")
+
+
+def qr_svg(data: str, scale: int = 5) -> str:
+    """Inline SVG QR code (no external request, CSP-safe)."""
+    return segno.make(data, error="m").svg_inline(scale=scale)
+
+
+def current_theme() -> str:
+    with db.tx() as c:
+        t = db.get_config(c, "theme", "light")
+    return t if t in THEMES else "light"
 
 app = FastAPI(title="GHOST ID", docs_url=None, redoc_url=None, openapi_url=None)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
@@ -46,6 +59,7 @@ def fmt_time(ts: float | None) -> str:
 
 
 templates.env.filters["t"] = fmt_time
+templates.env.globals["theme"] = current_theme
 
 
 def client_ip(request: Request) -> str:
@@ -454,13 +468,44 @@ def dashboard(request: Request):
         notes = c.execute("SELECT * FROM notes ORDER BY id DESC LIMIT 30").fetchall()
         hooks = c.execute("SELECT * FROM webhooks ORDER BY id").fetchall()
     taps = [_recon_view(r, stats["ip_counts"], stats["fp_counts"]) for r in rows]
+    band_url = f"{settings.base_url}/t/{owner['band_id']}"
     return templates.TemplateResponse(request, "admin.html", {
         "owner": owner, "me": me, "devices": devices, "links": links, "taps": taps,
         "audit": audit, "stats": stats, "notes": notes, "hooks": hooks,
         "recon_on": recon_on(), "pair_link": link,
         "webhook_kinds": automations.KINDS, "webhook_events": automations.EVENTS,
-        "band_url": f"{settings.base_url}/t/{owner['band_id']}",
+        "band_url": band_url, "band_qr": qr_svg(band_url, 5),
+        "pair_qr": qr_svg(link, 5) if link else "",
+        "themes": THEMES, "active_theme": current_theme(),
     })
+
+
+@app.get("/admin/feed.json")
+def feed(request: Request):
+    """Recent visitor taps for the live feed; owner only."""
+    require_owner(request)
+    with db.tx() as c:
+        rows = c.execute(
+            "SELECT t.id, t.ts, t.ip, t.ua, t.geo, (r.photo IS NOT NULL) AS photo,"
+            " (r.lat IS NOT NULL) AS loc FROM taps t LEFT JOIN recon r ON r.tap_id = t.id"
+            " WHERE t.is_owner = 0 ORDER BY t.id DESC LIMIT 12").fetchall()
+    items = []
+    for r in rows:
+        g = json.loads(r["geo"]) if r["geo"] else {}
+        place = ", ".join(v for v in (g.get("city"), g.get("country")) if v)
+        items.append({"id": r["id"], "time": fmt_time(r["ts"]),
+                      "device": useragent.summarise(r["ua"] or ""), "ip": r["ip"],
+                      "place": place, "photo": bool(r["photo"]), "loc": bool(r["loc"])})
+    return JSONResponse({"items": items})
+
+
+@app.post("/admin/theme")
+def set_theme(request: Request, theme: str = Form(...)):
+    require_owner(request)
+    if theme in THEMES:
+        with db.tx() as c:
+            db.set_config(c, "theme", theme)
+    return RedirectResponse("/admin", status_code=303)
 
 
 @app.get("/admin/tap/{tap_id}", response_class=HTMLResponse)

@@ -8,7 +8,7 @@
   <title>{% block title %}GHOST ID{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body {% block body_attrs %}{% endblock %}>
+<body data-theme="{{ theme() }}" {% block body_attrs %}{% endblock %}>
   <main class="wrap">
     <header class="brand"><span class="dot"></span> GHOST<span class="dim">//</span>ID</header>
     {% block content %}{% endblock %}

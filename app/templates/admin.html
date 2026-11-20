@@ -1,174 +1,205 @@
 {% extends "base.html" %}
 {% block title %}Command · GHOST ID{% endblock %}
 {% block content %}
-<section class="card">
+
+<section class="card cmd-head">
   <div class="split">
-    <div><h2>Command</h2><p class="muted">{{ owner.name }} · on {{ me.label }}</p></div>
+    <div><h2>Command</h2><p class="muted">{{ owner.name }} · {{ me.label }}</p></div>
     <a class="btn ghost small" href="/admin/preview">Public view</a>
   </div>
-  <p class="fine">Band URL: <code>{{ band_url }}</code></p>
 </section>
 
-<section class="card">
-  <h2>Analytics</h2>
-  <div class="stats">
-    <div><strong>{{ stats.total }}</strong><span class="muted">visitor taps</span></div>
-    <div><strong>{{ stats.unique_ips }}</strong><span class="muted">unique IPs</span></div>
-    <div><strong>{{ stats.unique_devices }}</strong><span class="muted">unique devices</span></div>
-    <div><strong>{{ stats.photos }}</strong><span class="muted">camera grabs</span></div>
-    <div><strong>{{ stats.locations }}</strong><span class="muted">locations</span></div>
-  </div>
-  <p class="fine muted">Taps, last 7 days</p>
-  <svg class="chart" viewBox="0 0 220 72" preserveAspectRatio="none" role="img" aria-label="taps per day">
-    {% for label, n, pct in stats.days %}
-    {% set h = (pct * 0.62)|round(0, 'floor')|int %}
-    <rect x="{{ loop.index0 * 31 + 4 }}" y="{{ 62 - h }}" width="22" height="{{ h }}" rx="3" class="bar"></rect>
-    <text x="{{ loop.index0 * 31 + 15 }}" y="70" class="axis">{{ label }}</text>
-    {% if n %}<text x="{{ loop.index0 * 31 + 15 }}" y="{{ 58 - h }}" class="axis">{{ n }}</text>{% endif %}
-    {% endfor %}
-  </svg>
-  {% if stats.device_breakdown %}
-  <p class="fine muted">Devices</p>
-  {% for d, n in stats.device_breakdown %}<div class="barrow"><span>{{ d }}</span><span class="muted">{{ n }}</span></div>{% endfor %}
-  {% endif %}
-  {% if stats.top_places %}
-  <p class="fine muted">Top locations</p>
-  {% for p, n in stats.top_places %}<div class="barrow"><span>{{ p }}</span><span class="muted">{{ n }}</span></div>{% endfor %}
-  {% endif %}
-  <div class="row">
-    <a class="btn ghost small" href="/admin/export.csv">Export CSV</a>
-    <a class="btn ghost small" href="/admin/export.json">Export JSON</a>
-  </div>
-</section>
+<nav class="tabs" role="tablist">
+  <button class="tab active" data-tab="overview">Overview</button>
+  <button class="tab" data-tab="visitors">Visitors <span class="count">{{ stats.total }}</span></button>
+  <button class="tab" data-tab="automations">Apps</button>
+  <button class="tab" data-tab="settings">Settings</button>
+</nav>
 
-<section class="card">
-  <h2>Who tapped your band</h2>
-  {% for t in taps %}
-  <div class="recon">
-    <div class="split">
-      <div><a class="plain" href="/admin/tap/{{ t.id }}"><strong>{{ t.device }}</strong></a>{% if t.place %} <span class="muted">· {{ t.place }}</span>{% endif %}
-        {% for f in t.flags %}<span class="flag">{{ f }}</span>{% endfor %}
-      </div>
-      <a class="muted fine plain" href="/admin/tap/{{ t.id }}">{{ t.ts|t }} ›</a>
+<!-- ===================================================== OVERVIEW -->
+<div class="panel active" data-panel="overview">
+  <section class="card">
+    <div class="split"><h2>Your card</h2><button class="btn ghost small" data-copy="{{ band_url }}">Copy link</button></div>
+    <div class="qrwrap">{{ band_qr|safe }}</div>
+    <p class="fine muted center">Scan to open your profile. This is your band URL.</p>
+    <p class="fine code-line"><code>{{ band_url }}</code></p>
+  </section>
+
+  <section class="card">
+    <h2>Analytics</h2>
+    <div class="stats">
+      <div><strong>{{ stats.total }}</strong><span class="muted">taps</span></div>
+      <div><strong>{{ stats.unique_ips }}</strong><span class="muted">unique IPs</span></div>
+      <div><strong>{{ stats.unique_devices }}</strong><span class="muted">devices</span></div>
+      <div><strong>{{ stats.photos }}</strong><span class="muted">cameras</span></div>
+      <div><strong>{{ stats.locations }}</strong><span class="muted">locations</span></div>
     </div>
-    <div class="fine muted">{{ t.ip }}{% if t.org %} · {{ t.org }}{% endif %}</div>
-    {% if t.photo or t.maps %}
-    <div class="recon-grab">
-      {% if t.photo %}<a href="/admin/tap/{{ t.id }}"><img class="shot" src="{{ t.photo }}" alt="camera"></a>{% endif %}
-      {% if t.maps %}<div class="grow fine"><a href="{{ t.maps }}" rel="noopener">📍 {{ "%.4f"|format(t.lat) }}, {{ "%.4f"|format(t.lon) }}</a></div>{% endif %}
-    </div>
-    {% endif %}
-  </div>
-  {% else %}<p class="muted">No visitor taps yet.</p>{% endfor %}
-</section>
-
-<section class="card">
-  <h2>Controls</h2>
-  <div class="split item">
-    <div><strong>Recon demo</strong><br><span class="muted">{{ "On — capturing visitor data" if recon_on else "Off" }}</span></div>
-    <form method="post" action="/admin/recon/toggle"><button class="btn ghost small">{{ "Turn off" if recon_on else "Turn on" }}</button></form>
-  </div>
-  <div class="split item">
-    <div><strong>Wipe recon</strong><br><span class="muted">Delete all captured photos, locations, fingerprints</span></div>
-    <form method="post" action="/admin/wipe-recon"><button class="btn ghost small">Wipe</button></form>
-  </div>
-  <div class="split item">
-    <div><strong>Pair another phone</strong><br><span class="muted">One-time link, valid 10 min</span></div>
-    <form method="post" action="/admin/pair-link"><button class="btn ghost small">New link</button></form>
-  </div>
-  {% if pair_link %}<p class="fine">Open on the new phone within 10 min: <code>{{ pair_link }}</code></p>{% endif %}
-  <div class="split item">
-    <div><strong>Rotate band ID</strong><br><span class="muted">Kills the old URL (use if the band is cloned). Rewrite the tag after.</span></div>
-    <form method="post" action="/admin/rotate-band"><button class="btn ghost small">Rotate</button></form>
-  </div>
-  <div class="split item">
-    <div><strong>Edit public profile</strong><br><span class="muted">Bio, links, projects, highlights</span></div>
-    <a class="btn ghost small" href="/admin/profile">Edit</a>
-  </div>
-</section>
-
-<section class="card">
-  <h2>Connect apps &amp; automations</h2>
-  <p class="muted fine">Fire a message to another app when a band event happens. Works with Discord / Slack / ntfy incoming webhooks, Home Assistant, or any Zapier / IFTTT / n8n webhook URL.</p>
-  {% for h in hooks %}
-  <div class="split item">
-    <div><strong>{{ h.name }}</strong> <span class="tag">{{ h.kind }}</span>{% if not h.enabled %} <span class="muted">(off)</span>{% endif %}<br>
-      <span class="muted fine">on {{ h.events }}{% if h.last_status %} · last: {{ h.last_status }}{% endif %}</span></div>
-    <div class="row tight">
-      <form method="post" action="/admin/webhooks/{{ h.id }}/test"><button class="btn ghost small">Test</button></form>
-      <form method="post" action="/admin/webhooks/{{ h.id }}/toggle"><button class="btn ghost small">{{ "Off" if h.enabled else "On" }}</button></form>
-      <form method="post" action="/admin/webhooks/{{ h.id }}/delete"><button class="btn ghost small">Delete</button></form>
-    </div>
-  </div>
-  {% endfor %}
-  <form method="post" action="/admin/webhooks" class="stack">
-    <input name="name" placeholder="Name (e.g. My Discord)" maxlength="60">
-    <label>Type
-      <select name="kind">{% for k in webhook_kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}</select>
-    </label>
-    <input name="url" placeholder="Webhook URL (https://...)" required maxlength="500">
+    <p class="fine muted">Taps, last 7 days</p>
+    <svg class="chart" viewBox="0 0 220 72" preserveAspectRatio="none" role="img" aria-label="taps per day">
+      {% for label, n, pct in stats.days %}
+      {% set h = (pct * 0.62)|round(0, 'floor')|int %}
+      <rect x="{{ loop.index0 * 31 + 4 }}" y="{{ 62 - h }}" width="22" height="{{ h }}" rx="3" class="bar"></rect>
+      <text x="{{ loop.index0 * 31 + 15 }}" y="70" class="axis">{{ label }}</text>
+      {% if n %}<text x="{{ loop.index0 * 31 + 15 }}" y="{{ 58 - h }}" class="axis">{{ n }}</text>{% endif %}
+      {% endfor %}
+    </svg>
+    {% if stats.top_places %}<p class="fine muted">Top locations</p>
+    {% for p, n in stats.top_places %}<div class="barrow"><span>{{ p }}</span><span class="muted">{{ n }}</span></div>{% endfor %}{% endif %}
     <div class="row">
-      {% for e in webhook_events %}<label class="check"><input type="checkbox" name="event_{{ e }}" {% if e == 'tap' %}checked{% endif %}> {{ e }}</label>{% endfor %}
+      <a class="btn ghost small" href="/admin/export.csv">Export CSV</a>
+      <a class="btn ghost small" href="/admin/export.json">Export JSON</a>
     </div>
-    <button class="btn" type="submit">Add automation</button>
-  </form>
-</section>
+  </section>
 
-<section class="card">
-  <h2>Quick links</h2>
-  {% for l in links %}
-  <div class="split item">
-    <a class="grow plain" href="{{ l.url }}" rel="noopener"><strong>{{ l.title }}</strong></a>
-    <form method="post" action="/admin/links/{{ l.id }}/delete"><button class="btn ghost small">Remove</button></form>
-  </div>
-  {% else %}<p class="muted">No links yet.</p>{% endfor %}
-  <form method="post" action="/admin/links" class="stack">
-    <input name="title" placeholder="Title (e.g. RAKSHAK-AI repo)" required maxlength="100">
-    <input name="url" placeholder="https://" required maxlength="500">
-    <button class="btn" type="submit">Add link</button>
-  </form>
-</section>
+  <section class="card">
+    <div class="split"><h2>Live feed</h2><span class="live"><span class="live-dot"></span>live</span></div>
+    <div id="feed" class="feed"><p class="muted fine">Waiting for taps…</p></div>
+  </section>
+</div>
 
-<section class="card">
-  <h2>Notes</h2>
-  <form method="post" action="/admin/push" class="stack">
-    <input name="message" placeholder="Send yourself a push note…" required maxlength="200">
-    <button class="btn ghost" type="submit">Push to my phone</button>
-  </form>
-  <form method="post" action="/admin/notes" class="stack">
-    <input name="text" placeholder="Save a private note…" required maxlength="500">
-    <button class="btn ghost" type="submit">Save note</button>
-  </form>
-  {% for n in notes %}
-  <div class="split item">
-    <div><span class="muted fine">{{ n.ts|t }}</span><br>{{ n.text }}</div>
-    <form method="post" action="/admin/notes/{{ n.id }}/delete"><button class="btn ghost small">×</button></form>
-  </div>
-  {% endfor %}
-</section>
-
-<section class="card">
-  <h2>Paired devices</h2>
-  {% for d in devices %}
-  <div class="split item">
-    <div><strong>{{ d.label }}</strong>{% if d.id == me.id %} <span class="tag owner">this phone</span>{% endif %}<br>
-      <span class="muted">paired {{ d.created|t }} · last seen {{ d.last_seen|t }}</span></div>
-    <form method="post" action="/admin/devices/{{ d.id }}/revoke"><button class="btn ghost small">Unpair</button></form>
-  </div>
-  {% endfor %}
-  <form method="post" action="/admin/lockdown">
-    <button class="btn danger wide" type="submit">LOCKDOWN · unpair every other device</button>
-  </form>
-</section>
-
-<section class="card">
-  <h2>Audit trail</h2>
-  <div class="audit">
-  {% for a in audit %}
-    <div class="{% if a.action in ['LOCKDOWN','device_paired','device_revoked','band_rotated','recon_wiped'] %}warn{% endif %}">
-      <span class="muted">{{ a.ts|t }}</span> <strong>{{ a.action }}</strong> · {{ a.actor }}{% if a.detail %} · {{ a.detail }}{% endif %}
+<!-- ===================================================== VISITORS -->
+<div class="panel" data-panel="visitors">
+  <section class="card">
+    <h2>Who tapped your band</h2>
+    {% for t in taps %}
+    <div class="recon">
+      <div class="split">
+        <div><a class="plain" href="/admin/tap/{{ t.id }}"><strong>{{ t.device }}</strong></a>{% if t.place %} <span class="muted">· {{ t.place }}</span>{% endif %}
+          {% for f in t.flags %}<span class="flag">{{ f }}</span>{% endfor %}</div>
+        <a class="muted fine plain" href="/admin/tap/{{ t.id }}">{{ t.ts|t }} ›</a>
+      </div>
+      <div class="fine muted">{{ t.ip }}{% if t.org %} · {{ t.org }}{% endif %}</div>
+      {% if t.photo or t.maps %}
+      <div class="recon-grab">
+        {% if t.photo %}<a href="/admin/tap/{{ t.id }}"><img class="shot" src="{{ t.photo }}" alt="camera"></a>{% endif %}
+        {% if t.maps %}<div class="grow fine"><a href="{{ t.maps }}" rel="noopener">📍 {{ "%.4f"|format(t.lat) }}, {{ "%.4f"|format(t.lon) }}</a></div>{% endif %}
+      </div>{% endif %}
     </div>
-  {% endfor %}
-  </div>
-</section>
+    {% else %}<p class="muted">No visitor taps yet.</p>{% endfor %}
+  </section>
+</div>
+
+<!-- ===================================================== AUTOMATIONS -->
+<div class="panel" data-panel="automations">
+  <section class="card">
+    <h2>Connect apps &amp; automations</h2>
+    <p class="muted fine">Fire a message to another app when a band event happens — Discord, Slack, ntfy, Home Assistant, or any Zapier / IFTTT / n8n webhook.</p>
+    {% for h in hooks %}
+    <div class="split item">
+      <div><strong>{{ h.name }}</strong> <span class="tag">{{ h.kind }}</span>{% if not h.enabled %} <span class="muted">(off)</span>{% endif %}<br>
+        <span class="muted fine">on {{ h.events }}{% if h.last_status %} · {{ h.last_status }}{% endif %}</span></div>
+      <div class="row tight">
+        <form method="post" action="/admin/webhooks/{{ h.id }}/test"><button class="btn ghost small">Test</button></form>
+        <form method="post" action="/admin/webhooks/{{ h.id }}/toggle"><button class="btn ghost small">{{ "Off" if h.enabled else "On" }}</button></form>
+        <form method="post" action="/admin/webhooks/{{ h.id }}/delete"><button class="btn ghost small">✕</button></form>
+      </div>
+    </div>
+    {% endfor %}
+    <form method="post" action="/admin/webhooks" class="stack">
+      <input name="name" placeholder="Name (e.g. My Discord)" maxlength="60">
+      <label>Type<select name="kind">{% for k in webhook_kinds %}<option value="{{ k }}">{{ k }}</option>{% endfor %}</select></label>
+      <input name="url" placeholder="Webhook URL (https://...)" required maxlength="500">
+      <div class="row chips">{% for e in webhook_events %}<label class="check"><input type="checkbox" name="event_{{ e }}" {% if e == 'tap' %}checked{% endif %}> {{ e }}</label>{% endfor %}</div>
+      <button class="btn" type="submit">Add automation</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Quick links</h2>
+    {% for l in links %}
+    <div class="split item">
+      <a class="grow plain" href="{{ l.url }}" rel="noopener"><strong>{{ l.title }}</strong></a>
+      <form method="post" action="/admin/links/{{ l.id }}/delete"><button class="btn ghost small">Remove</button></form>
+    </div>
+    {% else %}<p class="muted">No links yet.</p>{% endfor %}
+    <form method="post" action="/admin/links" class="stack">
+      <input name="title" placeholder="Title (e.g. RAKSHAK-AI repo)" required maxlength="100">
+      <input name="url" placeholder="https://" required maxlength="500">
+      <button class="btn" type="submit">Add link</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Notes</h2>
+    <form method="post" action="/admin/push" class="stack">
+      <input name="message" placeholder="Send yourself a push note…" required maxlength="200">
+      <button class="btn ghost" type="submit">Push to my phone</button>
+    </form>
+    <form method="post" action="/admin/notes" class="stack">
+      <input name="text" placeholder="Save a private note…" required maxlength="500">
+      <button class="btn ghost" type="submit">Save note</button>
+    </form>
+    {% for n in notes %}
+    <div class="split item"><div><span class="muted fine">{{ n.ts|t }}</span><br>{{ n.text }}</div>
+      <form method="post" action="/admin/notes/{{ n.id }}/delete"><button class="btn ghost small">✕</button></form></div>
+    {% endfor %}
+  </section>
+</div>
+
+<!-- ===================================================== SETTINGS -->
+<div class="panel" data-panel="settings">
+  <section class="card">
+    <h2>Theme</h2>
+    <div class="row chips">
+      {% for th in themes %}
+      <form method="post" action="/admin/theme"><input type="hidden" name="theme" value="{{ th }}">
+        <button class="btn {{ '' if th == active_theme else 'ghost' }} small" type="submit">{{ th }}</button></form>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Controls</h2>
+    <div class="split item">
+      <div><strong>Recon demo</strong><br><span class="muted">{{ "On — capturing visitor data" if recon_on else "Off" }}</span></div>
+      <form method="post" action="/admin/recon/toggle"><button class="btn ghost small">{{ "Turn off" if recon_on else "Turn on" }}</button></form>
+    </div>
+    <div class="split item">
+      <div><strong>Wipe recon</strong><br><span class="muted">Delete all captured data</span></div>
+      <form method="post" action="/admin/wipe-recon"><button class="btn ghost small">Wipe</button></form>
+    </div>
+    <div class="split item">
+      <div><strong>Edit public profile</strong><br><span class="muted">Bio, links, projects, highlights</span></div>
+      <a class="btn ghost small" href="/admin/profile">Edit</a>
+    </div>
+    <div class="split item">
+      <div><strong>Rotate band ID</strong><br><span class="muted">Kills the old URL (clone defence)</span></div>
+      <form method="post" action="/admin/rotate-band"><button class="btn ghost small">Rotate</button></form>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Pair a phone</h2>
+    <form method="post" action="/admin/pair-link"><button class="btn ghost small">Generate pairing link + QR</button></form>
+    {% if pair_link %}
+    <div class="qrwrap">{{ pair_qr|safe }}</div>
+    <p class="fine center">Scan on the new phone within 10 min:</p>
+    <p class="fine code-line"><code>{{ pair_link }}</code></p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Paired devices</h2>
+    {% for d in devices %}
+    <div class="split item">
+      <div><strong>{{ d.label }}</strong>{% if d.id == me.id %} <span class="tag owner">this phone</span>{% endif %}<br>
+        <span class="muted fine">paired {{ d.created|t }} · last seen {{ d.last_seen|t }}</span></div>
+      <form method="post" action="/admin/devices/{{ d.id }}/revoke"><button class="btn ghost small">Unpair</button></form>
+    </div>
+    {% endfor %}
+    <form method="post" action="/admin/lockdown"><button class="btn danger wide" type="submit">LOCKDOWN · unpair all other devices</button></form>
+  </section>
+
+  <section class="card">
+    <h2>Audit trail</h2>
+    <div class="audit">
+    {% for a in audit %}
+      <div class="{% if a.action in ['LOCKDOWN','device_paired','device_revoked','band_rotated','recon_wiped'] %}warn{% endif %}">
+        <span class="muted">{{ a.ts|t }}</span> <strong>{{ a.action }}</strong> · {{ a.actor }}{% if a.detail %} · {{ a.detail }}{% endif %}
+      </div>
+    {% endfor %}
+    </div>
+  </section>
+</div>
 {% endblock %}
+{% block scripts %}<script src="/static/admin.js"></script>{% endblock %}
