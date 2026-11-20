@@ -1,0 +1,27 @@
+# Deploy to Fly.io (https://fly.io) — free allowance includes a small VM and a
+# persistent volume, so data survives restarts (unlike Render's free tier).
+# See DEPLOY.md. Run: fly launch --copy-config --name ghost-id-<yourname>
+app = "ghost-id"
+primary_region = "bom"            # Mumbai; change if you prefer another region
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  GHOST_OWNER_NAME = "Abhay Bailey"
+  GHOST_BAND_ID = "secBG37ZaKy2F56w"
+  GHOST_TRUST_PROXY = "1"
+  GHOST_RECON = "1"
+  GHOST_GEO = "1"
+  GHOST_DB = "/data/ghost.db"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[mounts]]
+  source = "ghost_data"
+  destination = "/data"

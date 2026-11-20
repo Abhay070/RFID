@@ -20,9 +20,30 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 
+def _auto_base_url() -> str:
+    """Work out the public URL with no manual config on common free hosts."""
+    explicit = os.getenv("GHOST_BASE_URL")
+    if explicit:
+        return explicit
+    # Render sets this automatically to the live https URL.
+    render = os.getenv("RENDER_EXTERNAL_URL")
+    if render:
+        return render
+    # Fly.io exposes the app name; the default domain is <app>.fly.dev.
+    fly = os.getenv("FLY_APP_NAME")
+    if fly:
+        return f"https://{fly}.fly.dev"
+    return "http://localhost:8000"
+
+
 class Settings:
     def __init__(self) -> None:
-        self.base_url = os.getenv("GHOST_BASE_URL", "http://localhost:8000").rstrip("/")
+        self.base_url = _auto_base_url().rstrip("/")
+        # Optional first-boot seeding, for hosts with no shell access.
+        self.owner_name = os.getenv("GHOST_OWNER_NAME", "")
+        self.band_id = os.getenv("GHOST_BAND_ID", "")
+        # Secret URL that pairs a phone without the CLI (set in the host's env).
+        self.setup_key = os.getenv("GHOST_SETUP_KEY", "")
         self.db_path = os.getenv("GHOST_DB", str(ROOT / "data" / "ghost.db"))
         self.profile_path = os.getenv("GHOST_PROFILE", str(ROOT / "data" / "profile.json"))
         default_secure = "1" if self.base_url.startswith("https://") else "0"

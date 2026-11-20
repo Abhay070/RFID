@@ -105,3 +105,18 @@ def audit(c: sqlite3.Connection, actor: str, action: str, detail: str = "", ip: 
 
 def get_owner(c: sqlite3.Connection):
     return c.execute("SELECT * FROM owner WHERE id = 1").fetchone()
+
+
+def ensure_owner() -> None:
+    """Seed the owner on first boot from env vars, so a hosted instance with no
+    shell still has a stable band ID. Does nothing once an owner exists."""
+    from . import security
+    if not settings.band_id and not settings.owner_name:
+        return
+    with tx() as c:
+        if get_owner(c):
+            return
+        band = settings.band_id or security.new_band_id()
+        name = settings.owner_name or "GHOST"
+        c.execute("INSERT INTO owner (id, name, band_id) VALUES (1, ?, ?)", (name, band))
+        audit(c, "owner", "auto_seeded", f"band {band}")

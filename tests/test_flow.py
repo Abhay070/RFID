@@ -193,3 +193,24 @@ def test_recon_disabled_hides_demo_and_ignores_beacon(monkeypatch):
     v.post(f"/t/{BAND}/recon", json={"token": "x", "fp": {"tz": "Y"}})
     with db.tx() as c:
         assert c.execute("SELECT COUNT(*) FROM recon").fetchone()[0] == before
+
+
+def test_setup_link_pairs_a_phone_and_is_key_gated(monkeypatch):
+    from app import config
+    monkeypatch.setattr(config.settings, "setup_key", "s3cret-key")
+    # wrong key is indistinguishable from a missing page
+    assert TestClient(app).get("/setup/wrong").status_code == 404
+    assert TestClient(app).post("/setup/wrong").status_code == 404
+    # right key: GET shows a confirm button, POST pairs this browser
+    phone = TestClient(app)
+    assert "Pair" in phone.get("/setup/s3cret-key").text
+    r = phone.post("/setup/s3cret-key", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/admin"
+    assert phone.get("/admin").status_code == 200
+    assert phone.get(f"/t/{BAND}", follow_redirects=False).headers["location"] == "/admin"
+
+
+def test_setup_disabled_when_no_key(monkeypatch):
+    from app import config
+    monkeypatch.setattr(config.settings, "setup_key", "")
+    assert TestClient(app).get("/setup/anything").status_code == 404

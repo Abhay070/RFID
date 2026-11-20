@@ -1,0 +1,34 @@
+# One-click deploy to Render (https://render.com). See DEPLOY.md for the walkthrough.
+# This default is the FREE plan: $0, but the instance sleeps after inactivity and
+# its disk resets on restart (visitor recon, taps and paired devices are cleared;
+# your band URL and the /setup link keep working because they come from env vars).
+# For full persistence, switch `plan` to `starter` and uncomment the `disk` block.
+services:
+  - type: web
+    name: ghost-id
+    runtime: docker
+    plan: free
+    envVars:
+      - key: GHOST_OWNER_NAME
+        value: Abhay Bailey
+      # Public band identifier (it lives in the tag URL, so it is not secret).
+      - key: GHOST_BAND_ID
+        value: secBG37ZaKy2F56w
+      # Secret URL used once to pair your phone: read it in the Render dashboard
+      # (Environment tab) after deploy, then open /setup/<value> on your iPhone.
+      - key: GHOST_SETUP_KEY
+        generateValue: true
+      # Secret ntfy topic for push alerts; read it in the dashboard and subscribe.
+      - key: NTFY_TOPIC
+        generateValue: true
+      - key: GHOST_TRUST_PROXY
+        value: "1"
+      - key: GHOST_RECON
+        value: "1"
+      - key: GHOST_GEO
+        value: "1"
+    # Uncomment with plan: starter for a persistent database ($7/mo):
+    # disk:
+    #   name: ghost-data
+    #   mountPath: /data
+    #   sizeGB: 1

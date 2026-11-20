@@ -4,7 +4,7 @@
 <section class="card hero">
   <h1>Pair this phone</h1>
   <p class="muted">After pairing, tapping your band on this phone opens Command. Only do this on your own phone.</p>
-  <form method="post" action="/pair/{{ code }}" class="stack">
+  <form method="post" action="{% if setup_key %}/setup/{{ setup_key }}{% else %}/pair/{{ code }}{% endif %}" class="stack">
     <button class="btn wide" type="submit">Pair as “{{ label }}”</button>
   </form>
 </section>

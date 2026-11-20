@@ -35,6 +35,7 @@ app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 templates = Jinja2Templates(directory=BASE / "templates")
 
 db.init()
+db.ensure_owner()   # seed from env on first boot (hosted instances without a shell)
 
 pair_limiter = security.RateLimiter(limit=10, window=15 * 60)
 
@@ -114,7 +115,7 @@ async def security_middleware(request: Request, call_next):
         "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; "
         "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     )
-    if request.url.path.startswith(("/admin", "/pair", "/t/")):
+    if request.url.path.startswith(("/admin", "/pair", "/setup", "/t/")):
         resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -282,6 +283,43 @@ def pair_confirm(request: Request, code: str):
 
 
 # ---------------------------------------------------------------- owner: command dashboard
+@app.get("/setup/{key}", response_class=HTMLResponse)
+def setup_page(request: Request, key: str):
+    """Pair a phone from the browser using the secret GHOST_SETUP_KEY. For hosts
+    where you can't run 'manage.py pair'. GET only shows a button (so link
+    previews can't use it); the POST does the pairing."""
+    if not pair_limiter.hit(client_ip(request)):
+        raise HTTPException(429, "Too many attempts. Wait 15 minutes.")
+    if not settings.setup_key or not same(key, settings.setup_key):
+        raise HTTPException(404)
+    return templates.TemplateResponse(request, "pair.html", {"code": None, "label": "this phone",
+                                                             "setup_key": key})
+
+
+@app.post("/setup/{key}")
+def setup_confirm(request: Request, key: str):
+    ip = client_ip(request)
+    if not pair_limiter.hit(ip):
+        raise HTTPException(429, "Too many attempts. Wait 15 minutes.")
+    if not settings.setup_key or not same(key, settings.setup_key):
+        raise HTTPException(404)
+    token, now = security.new_token(), time.time()
+    with db.tx() as c:
+        c.execute(
+            "INSERT INTO devices (id, label, token_hash, created, expires, last_seen, ip, ua)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (security.new_id(), "setup link", security.token_hash(token), now,
+             now + settings.device_days * 86400, now, ip, request.headers.get("user-agent", "")[:200]),
+        )
+        db.audit(c, "owner", "device_paired", "via setup link", ip)
+    notify.push("GHOST ID: device paired", "A phone was paired via the setup link.",
+                priority="high", tags="key")
+    resp = RedirectResponse("/admin", status_code=303)
+    resp.set_cookie(DEVICE_COOKIE, token, max_age=settings.device_days * 86400, httponly=True,
+                    secure=settings.secure_cookies, samesite="lax", path="/")
+    return resp
+
+
 @app.get("/admin", response_class=HTMLResponse)
 def dashboard(request: Request):
     me = require_owner(request)
