@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Pair device · GHOST ID{% endblock %}
+{% block content %}
+<section class="card hero">
+  <h1>Pair this phone</h1>
+  <p class="muted">After pairing, tapping your band on this phone opens Command. Only do this on your own phone.</p>
+  <form method="post" action="/pair/{{ code }}" class="stack">
+    <button class="btn wide" type="submit">Pair as “{{ label }}”</button>
+  </form>
+</section>
+{% endblock %}

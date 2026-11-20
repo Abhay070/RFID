@@ -32,8 +32,9 @@ class Settings:
         self.ntfy_server = os.getenv("NTFY_SERVER", "https://ntfy.sh").rstrip("/")
         self.ntfy_topic = os.getenv("NTFY_TOPIC", "")
         self.notify_taps = os.getenv("GHOST_NOTIFY_TAPS", "0") == "1"
-        self.owner_session_hours = int(os.getenv("GHOST_OWNER_SESSION_HOURS", "12"))
-        self.request_ttl_minutes = int(os.getenv("GHOST_REQUEST_TTL_MINUTES", "15"))
+        # How long a paired phone stays trusted, and how long a pairing link is valid.
+        self.device_days = int(os.getenv("GHOST_DEVICE_DAYS", "365"))
+        self.pair_minutes = int(os.getenv("GHOST_PAIR_MINUTES", "10"))
 
 
 settings = Settings()

@@ -1,23 +1,35 @@
-# GHOST ID: Phase 1 (Identity + Access Core)
+# GHOST ID: Identity Core
 
-**The band identifies the entry point, your iPhone approves access, and the backend enforces permissions.**
+**The band identifies the entry point, your paired iPhone is the key, and the backend enforces every permission.**
+
+One band, two experiences:
+
+| Who taps | What they get |
+|---|---|
+| **You, on your paired iPhone** | Straight into **Command**, your control dashboard |
+| **Anyone else** | Your public promotional profile only: bio, projects, highlights, links and a Save contact card |
+
+Visitors never see a login page, request form or any hint that Command exists. `/admin` answers *Not found* to them.
 
 ## What works now
 
 | Feature | Where |
 |---|---|
-| Tap the band to open your public profile, projects and highlights | `/t/<band-id>` |
+| Public profile with projects, highlights and links | `/t/<band-id>` |
 | "Save contact" button (vCard) | `/t/<band-id>/contact.vcf` |
-| Visitor requests private access, and your iPhone gets a push alert | ntfy app |
-| You approve from your phone with a time limit (5 min to 24 h) and choose which resources to share | `/admin` |
-| Visitor gets a private page with a live countdown that closes when time runs out | `/private` |
-| Revoke any session at any time | `/admin` |
-| **PANIC** button that ends all guest access at once | `/admin` |
-| Owner tap detection: when you're logged in, tapping your own band opens the dashboard shortcut | `/t/<band-id>` |
-| Audit trail of every tap, request, approval, login, failed login and resource opened | `/admin` |
-| Band rotation: if the band is lost or cloned, issue a new ID and the old URL stops working | `manage.py rotate-band` |
+| Owner tap: your paired phone is sent straight to Command | `/t/<band-id>` → `/admin` |
+| One-time phone pairing link, created only from the server | `manage.py pair` |
+| **Who tapped your band**: time, IP and device of each visitor tap | `/admin` |
+| Quick links: your repos, docs and tools in one place | `/admin` |
+| Paired devices list with Unpair, and a **LOCKDOWN** button that unpairs every other device | `/admin` |
+| "Public view" preview of what visitors see | `/admin/preview` |
+| Audit trail of every tap, pairing, unpair and lockdown | `/admin` |
+| Push alert to your iPhone when a device is paired (and optionally on every visitor tap) | ntfy app |
+| Band rotation if the band is lost or cloned | `manage.py rotate-band` |
 
-Security built in: scrypt password hashing, hashed session tokens, login rate limiting with push alerts on failed attempts, CSRF origin checks, strict Content-Security-Policy, no-store caching on private pages, and a random 96-bit band ID that can't be guessed.
+**How your phone is recognised:** pairing stores a random 256-bit device token in a secure, httponly cookie on your phone (kept 365 days). The server stores only its SHA-256 hash. There is no password to guess or phish, and pairing links work once, expire after 10 minutes and are rate limited.
+
+Other security: CSRF origin checks on every form, strict Content-Security-Policy (no inline scripts), no-store caching on owner pages, and a random 96-bit band ID that can't be guessed.
 
 ## 1. Run it on your computer
 
@@ -28,11 +40,12 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env               # then edit .env
 cp profile.example.json data/profile.json   # edit with your details
-python manage.py init              # sets your password and prints your band URL
+python manage.py init              # prints your band URL
+python manage.py pair              # prints a one-time link to pair your phone
 uvicorn app.main:app --reload
 ```
 
-Open http://localhost:8000/admin and log in. Run `python manage.py url` to see your band URL.
+Open the pairing link in your browser, then open your band URL: you land in Command. Open the band URL in a private window to see the visitor view.
 
 Run the tests with `pip install pytest httpx && pytest -q`.
 
@@ -59,34 +72,39 @@ The URL uses about 50 of the tag's 144 bytes, so there's plenty of room.
 **Optional, protect against overwriting:** NFC Tools → **Other → Set password** sets the NTAG213's 32-bit write password. This stops casual overwrites at events. It is not strong security, but it's a good demo point.
 **Never use "Lock tag".** It is permanent and you would never be able to rotate the URL.
 
-## 4. Get approval alerts on your iPhone
+## 4. Pair your iPhone
 
-1. Install **ntfy** from the App Store.
-2. Subscribe to the exact topic you set in `NTFY_TOPIC`. Make it long and random, because anyone who knows the topic can read your alerts.
-3. Log in to `/admin` once in Safari on your iPhone. Use Share → **Add to Home Screen** to get a one-tap command dashboard.
+1. On the server, run `python manage.py pair iPhone`. It prints a link that works **once** and expires in **10 minutes**.
+2. Open it in **Safari** on your iPhone and tap **Pair**. You land in Command.
+3. Now tap the band on your iPhone and open the notification: it goes straight to Command.
 
-Now when someone requests access, you get a push alert. Tap it, choose duration and resources, and approve.
+Pair in Safari, because NFC taps open Safari. Home Screen web apps keep separate cookies.
+**Lost or stolen phone:** run `python manage.py unpair-all` on the server, then pair your new phone.
 
-## 5. iPhone personal automations (owner side)
+## 5. Push alerts (optional)
 
-Shortcuts app → **Automation → + → NFC** → scan your band → choose an action, for example "Open URL" pointing to your `/admin`, or turning on a Focus mode.
-This runs only on *your* phone, which makes it the starting point for Phase 3 (iPhone automation).
+Install **ntfy** from the App Store and subscribe to the exact topic in `NTFY_TOPIC`. Make it long and random, because anyone who knows the topic can read your alerts. You get an alert whenever a device is paired, and on every visitor tap if `GHOST_NOTIFY_TAPS=1`.
+
+## 6. iPhone personal automations
+
+Shortcuts app → **Automation → + → NFC** → scan your band → choose an action, for example turning on a Focus mode. This runs only on *your* phone and is the starting point for Phase 3 (iPhone automation).
 
 ## Honest limits (good to mention at exhibitions)
 
-- The NTAG213 stores a plain URL with no cryptography, so it **can be cloned** with a Flipper Zero or Proxmark. That's why a tap only opens the door to a request, and a real decision always needs your phone. If a band is cloned, run `rotate-band`.
+- The NTAG213 stores a plain URL with no cryptography, so it **can be cloned** with a Flipper Zero or Proxmark. That's why the band alone grants nothing: a cloned band tapped on someone else's phone shows only the public profile. Control needs the device token that exists only on your paired phone. If a band is cloned, run `rotate-band`.
 - Upgrading to **NTAG424 DNA** adds a fresh cryptographic code on every tap (SUN/SDM) that the server can verify. This is planned for a later phase.
-- Once someone opens a shared link, they can copy what they see. Revoking access stops future access but can't erase copies.
+- Whoever holds your **unlocked, paired phone** has control, just like your email. Keep a phone passcode, and use `unpair-all` if it is lost.
+- The visitor tap log records IP addresses and browser details. Mention this if you demo it publicly.
 
 ## Project layout
 
 ```
-app/main.py       routes: tap, request, approve, sessions, panic, audit
+app/main.py       routes: tap, pairing, Command, links, devices, lockdown
 app/db.py         SQLite schema
-app/security.py   hashing, tokens, rate limiting
+app/security.py   tokens, rate limiting
 app/notify.py     iPhone push via ntfy
-app/templates/    pages (profile, wait, private, admin, login)
-manage.py         init / password / rotate-band / url / taps
+app/templates/    pages (profile, pair, admin, message)
+manage.py         init / pair / devices / unpair-all / rotate-band / url / taps
 tests/            end-to-end flow tests
 ```
 

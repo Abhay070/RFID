@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{{ profile.name }} · GHOST ID{% endblock %}
 {% block content %}
-{% if is_owner %}
-<div class="banner owner">Owner tap detected · <a href="/admin">Open command dashboard →</a></div>
+{% if preview %}
+<div class="banner">Preview: this is what visitors see · <a href="/admin">Back to Command</a></div>
 {% endif %}
 <section class="card hero">
   <div class="avatar">{{ profile.name[:1] }}</div>
@@ -32,17 +32,4 @@
 </section>
 {% endif %}
 
-<section class="card">
-  <h2>Private access</h2>
-  {% if has_guest %}
-  <p>You already have an active session. <a href="/private">Open private area →</a></p>
-  {% else %}
-  <p class="muted">Request a time-limited session. {{ owner_name.split(' ')[0] }} approves it from his phone.</p>
-  <form method="post" action="/t/{{ band_id }}/request" class="stack">
-    <input name="name" placeholder="Your name" maxlength="60" required>
-    <input name="reason" placeholder="Why? (optional)" maxlength="200">
-    <button class="btn" type="submit">Request access</button>
-  </form>
-  {% endif %}
-</section>
 {% endblock %}

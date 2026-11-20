@@ -10,7 +10,6 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS owner (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     name TEXT NOT NULL,
-    pw_hash TEXT NOT NULL,
     band_id TEXT NOT NULL UNIQUE
 );
 CREATE TABLE IF NOT EXISTS taps (
@@ -20,36 +19,30 @@ CREATE TABLE IF NOT EXISTS taps (
     ip TEXT, ua TEXT,
     is_owner INTEGER NOT NULL DEFAULT 0
 );
-CREATE TABLE IF NOT EXISTS resources (
+CREATE TABLE IF NOT EXISTS resources (          -- the owner's quick links
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     url TEXT,
     note TEXT,
     created REAL NOT NULL
 );
-CREATE TABLE IF NOT EXISTS requests (
-    id TEXT PRIMARY KEY,
-    ts REAL NOT NULL,
-    name TEXT NOT NULL,
-    reason TEXT,
-    ip TEXT,
-    visitor_hash TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',  -- pending/approved/denied/claimed
-    minutes INTEGER,
-    resource_ids TEXT,                        -- comma separated
-    decided_ts REAL
-);
-CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL,                       -- owner / guest
-    token_hash TEXT NOT NULL UNIQUE,
-    label TEXT,
+CREATE TABLE IF NOT EXISTS pairings (           -- one-time links that pair a phone
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code_hash TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
     created REAL NOT NULL,
     expires REAL NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS devices (            -- the owner's paired phones
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    token_hash TEXT NOT NULL UNIQUE,
+    created REAL NOT NULL,
+    expires REAL NOT NULL,
+    last_seen REAL,
     revoked INTEGER NOT NULL DEFAULT 0,
-    resource_ids TEXT,
-    request_id TEXT,
-    ip TEXT
+    ip TEXT, ua TEXT
 );
 CREATE TABLE IF NOT EXISTS audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
