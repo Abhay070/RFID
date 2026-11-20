@@ -1,0 +1,20 @@
+{
+  "name": "Abhay Bailey",
+  "tagline": "AI · Cybersecurity · Embedded Systems",
+  "location": "Gurugram, India",
+  "bio": "Student builder working on AI-driven security systems and hardware projects.",
+  "links": [
+    {"label": "GitHub", "url": "https://github.com/your-username"},
+    {"label": "LinkedIn", "url": "https://www.linkedin.com/in/your-profile"}
+  ],
+  "contact": {"email": "you@example.com", "phone": ""},
+  "projects": [
+    {"name": "RAKSHAK-AI", "desc": "AI-based surveillance and threat-detection platform"},
+    {"name": "TruthScan", "desc": "Fake news detection"},
+    {"name": "GHOST ID", "desc": "NFC identity and access system (this page)"}
+  ],
+  "achievements": [
+    "Selected to exhibit RAKSHAK-AI at the 53rd RBVP (NCERT), Puducherry",
+    "Cyber Leader, Old Gurugram"
+  ]
+}

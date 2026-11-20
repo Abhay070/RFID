@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#07090c">
+  <title>{% block title %}GHOST ID{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body {% block body_attrs %}{% endblock %}>
+  <main class="wrap">
+    <header class="brand"><span class="dot"></span> GHOST<span class="dim">//</span>ID</header>
+    {% block content %}{% endblock %}
+    <footer class="foot">GHOST ID · tap · approve · enforce</footer>
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

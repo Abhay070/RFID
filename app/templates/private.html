@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block body_attrs %}data-expires="{{ session.expires|int }}"{% endblock %}
+{% block content %}
+<div class="banner">Private session for {{ session.label }} · ends in <strong id="countdown">--:--</strong></div>
+<section class="card">
+  <h2>Shared with you</h2>
+  {% for r in resources %}
+  <a class="item link" href="/r/{{ r.id }}" rel="noopener"><strong>{{ r.title }}</strong>{% if r.note %}<span class="muted">{{ r.note }}</span>{% endif %}</a>
+  {% else %}
+  <p class="muted">Nothing was shared in this session.</p>
+  {% endfor %}
+</section>
+<p class="fine">Access is logged and can be revoked at any time. Anything you download stays on your device.</p>
+{% endblock %}
+{% block scripts %}<script src="/static/private.js"></script>{% endblock %}

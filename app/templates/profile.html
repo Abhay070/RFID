@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ profile.name }} · GHOST ID{% endblock %}
+{% block content %}
+{% if is_owner %}
+<div class="banner owner">Owner tap detected · <a href="/admin">Open command dashboard →</a></div>
+{% endif %}
+<section class="card hero">
+  <div class="avatar">{{ profile.name[:1] }}</div>
+  <h1>{{ profile.name }}</h1>
+  {% if profile.tagline %}<p class="tagline">{{ profile.tagline }}</p>{% endif %}
+  {% if profile.location %}<p class="muted">{{ profile.location }}</p>{% endif %}
+  {% if profile.bio %}<p>{{ profile.bio }}</p>{% endif %}
+  <div class="row">
+    <a class="btn" href="/t/{{ band_id }}/contact.vcf">Save contact</a>
+    {% for link in profile.links %}<a class="btn ghost" href="{{ link.url }}" rel="noopener">{{ link.label }}</a>{% endfor %}
+  </div>
+</section>
+
+{% if profile.projects %}
+<section class="card">
+  <h2>Projects</h2>
+  {% for p in profile.projects %}
+  <div class="item"><strong>{{ p.name }}</strong><span class="muted">{{ p.desc }}</span></div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if profile.achievements %}
+<section class="card">
+  <h2>Highlights</h2>
+  <ul class="list">{% for a in profile.achievements %}<li>{{ a }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Private access</h2>
+  {% if has_guest %}
+  <p>You already have an active session. <a href="/private">Open private area →</a></p>
+  {% else %}
+  <p class="muted">Request a time-limited session. {{ owner_name.split(' ')[0] }} approves it from his phone.</p>
+  <form method="post" action="/t/{{ band_id }}/request" class="stack">
+    <input name="name" placeholder="Your name" maxlength="60" required>
+    <input name="reason" placeholder="Why? (optional)" maxlength="200">
+    <button class="btn" type="submit">Request access</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

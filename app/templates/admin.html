@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Command · GHOST ID{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="split">
+    <div><h2>Command</h2><p class="muted">{{ owner.name }} · {{ tap_count }} taps in 24h</p></div>
+    <form method="post" action="/admin/logout"><button class="btn ghost small">Log out</button></form>
+  </div>
+  <p class="fine">Band URL: <code>{{ band_url }}</code></p>
+  <form method="post" action="/admin/panic">
+    <button class="btn danger wide" type="submit">PANIC · end all guest access</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Pending requests <span class="pill">{{ pending|length }}</span></h2>
+  {% for r in pending %}
+  <div class="req">
+    <div><strong>{{ r.name }}</strong> <span class="muted">· {{ r.ts|t }} · {{ r.ip }}</span></div>
+    {% if r.reason %}<p>“{{ r.reason }}”</p>{% endif %}
+    <form method="post" action="/admin/requests/{{ r.id }}/approve" class="stack">
+      <label>Duration
+        <select name="minutes">{% for m in minutes %}<option value="{{ m }}" {% if m == 15 %}selected{% endif %}>{% if m < 60 %}{{ m }} min{% else %}{{ m // 60 }} h{% endif %}</option>{% endfor %}</select>
+      </label>
+      {% for res in resources %}
+      <label class="check"><input type="checkbox" name="resource" value="{{ res.id }}"> {{ res.title }}</label>
+      {% endfor %}
+      <div class="row">
+        <button class="btn" type="submit">Approve</button>
+        <button class="btn ghost" type="submit" formaction="/admin/requests/{{ r.id }}/deny">Deny</button>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <p class="muted">No one is waiting. <a href="/admin">Refresh</a></p>
+  {% endfor %}
+</section>
+
+<section class="card">
+  <h2>Active sessions <span class="pill">{{ sessions|length }}</span></h2>
+  {% for s in sessions %}
+  <div class="split item">
+    <div><strong>{{ s.label }}</strong> <span class="tag {{ s.kind }}">{{ s.kind }}</span><br>
+      <span class="muted">until {{ s.expires|t }} · {{ s.ip }}</span></div>
+    <form method="post" action="/admin/sessions/{{ s.id }}/revoke"><button class="btn ghost small">Revoke</button></form>
+  </div>
+  {% else %}<p class="muted">None.</p>{% endfor %}
+</section>
+
+<section class="card">
+  <h2>Vault resources</h2>
+  {% for res in resources %}
+  <div class="split item">
+    <div><strong>{{ res.title }}</strong><br><span class="muted">{{ res.url or res.note }}</span></div>
+    <form method="post" action="/admin/resources/{{ res.id }}/delete"><button class="btn ghost small">Delete</button></form>
+  </div>
+  {% endfor %}
+  <form method="post" action="/admin/resources" class="stack">
+    <input name="title" placeholder="Title (e.g. RAKSHAK demo video)" required maxlength="100">
+    <input name="url" placeholder="https:// link (optional)" maxlength="500">
+    <input name="note" placeholder="Note shown to guest (optional)" maxlength="1000">
+    <button class="btn" type="submit">Add resource</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Audit trail</h2>
+  <div class="audit">
+  {% for a in audit %}
+    <div class="{% if a.action in ['PANIC','login_failed','login_rate_limited'] %}warn{% endif %}">
+      <span class="muted">{{ a.ts|t }}</span> <strong>{{ a.action }}</strong> · {{ a.actor }}{% if a.detail %} · {{ a.detail }}{% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

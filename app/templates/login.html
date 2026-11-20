@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Owner login · GHOST ID{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Owner login</h2>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/admin/login" class="stack">
+    <input type="password" name="password" placeholder="Password" autocomplete="current-password" required autofocus>
+    <button class="btn" type="submit">Unlock</button>
+  </form>
+</section>
+{% endblock %}
