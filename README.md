@@ -92,4 +92,4 @@ tests/            end-to-end flow tests
 
 ## Next phases
 
-3. iPhone automation  4. ESP32 + PN532 desk reader  5. PC launcher  6. AI daily brief  7. Vault  8. Unified command dashboard
+2. Harden access: passkeys and more (deferred)  3. iPhone automation  4. Virtual NFC reader (ESP32 + PN532 optional later)  5. PC launcher  6. AI daily brief  7. Vault  8. Unified command dashboard

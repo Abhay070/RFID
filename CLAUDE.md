@@ -63,15 +63,15 @@ pytest -q                          # must stay green
 
 | # | Phase | Notes |
 |---|---|---|
-| 2 | Harden access | Replace password-only owner login with **passkeys (WebAuthn)**, keeping the password as fallback; add CSRF tokens on forms; protect the ntfy topic with auth or self-host ntfy; persist the rate limiter. |
+| 2 | Harden access (**DEFERRED** by owner; do not start until he asks) | Replace password-only owner login with **passkeys (WebAuthn)**, keeping the password as fallback; add CSRF tokens on forms; protect the ntfy topic with auth or self-host ntfy; persist the rate limiter. |
 | 3 | iPhone automation | Shortcuts NFC automations (owner phone only): open dashboard, Focus modes, call GHOST API endpoints with an owner API token. Add `/api` token auth for this. |
-| 4 | ESP32 + NFC desk reader | ESP32 + PN532 (preferred, I2C) or RC522. Reads the band UID/URL and POSTs to `/api/reader/tap` with a per-reader secret (HMAC). Each reader has an ID so actions are context-aware (desk, lab). Optional OLED status. **Hardware he owns is not yet confirmed; ask.** |
+| 4 | ESP32 + NFC desk reader | ESP32 + PN532 (preferred, I2C) or RC522. Reads the band UID/URL and POSTs to `/api/reader/tap` with a per-reader secret (HMAC). Each reader has an ID so actions are context-aware (desk, lab). Optional OLED status. **He owns no reader hardware.** Build a software *virtual reader* (sends the same HMAC-signed tap) first; real ESP32 support is optional later. |
 | 5 | PC launcher | Small Python agent on his PC that listens to the backend (websocket or long-poll) and runs whitelisted actions (open VS Code project, browser workspace, scripts). Only run pre-approved commands, never arbitrary ones. |
 | 6 | AI assistant / daily brief | "Tap for daily brief": tasks, deadlines, project status summarised by an LLM; only approved tools and documents. |
 | 7 | Vault | Time-limited file shares, per-resource permissions, remote revoke, download logging. |
 | 8 | Unified command dashboard | Device status, readers online, active sessions, security notifications, IoT (Home Assistant, ESP32 lights). |
 
-**Differentiator features to include along the way:** a built-in **clone-attack demo** for exhibitions (clone the band, show the system refusing without phone approval, audit log flags it); **NTAG424 DNA** support (SUN/SDM: a cryptographic code on every tap the server verifies) as the "secure band" next to the NTAG213 "insecure band"; context engine (reader + time + phone presence); tap-to-handoff phone → PC; lab session logger (tap in/out, log time and git commits).
+**Differentiator features to include along the way:** a built-in **clone-attack demo** for exhibitions (clone the band, show the system refusing without phone approval, audit log flags it); **NTAG424 DNA** support (SUN/SDM: a cryptographic code on every tap the server verifies) as the "secure band" (future: needs an NTAG424 band he does not own) next to the NTAG213 "insecure band"; context engine (reader + time + phone presence); tap-to-handoff phone → PC; lab session logger (tap in/out, log time and git commits).
 
 ## Constraints and conventions
 
